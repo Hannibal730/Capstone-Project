@@ -4,6 +4,10 @@
 
 // [상수/변수 선언부]
 #define SERIAL_BAUD 57600
+#define ENABLE_VERBOSE_DEBUG 0
+#define ENCODER_STREAM_INTERVAL_MS 100
+#define ENCODER_STREAM_MIN_TX_SPACE 32
+#define LOOP_DELAY_MS 2
 #define STEERING_PULSE_PIN 2
 #define ACCEL_PULSE_PIN 3
 #define ENCODER_A 18
@@ -455,7 +459,9 @@ void CenterSteeringOnce() {
 void printEncoderCsv(long count) {
   unsigned long now = millis();
 
-  if (now - encoderCsvPrevMs >= 50) {
+  if (now - encoderCsvPrevMs >= ENCODER_STREAM_INTERVAL_MS) {
+    if (Serial.availableForWrite() < ENCODER_STREAM_MIN_TX_SPACE) return;
+
     long dCount = count - encoderCsvPrevCount;
     unsigned long elapsedMs = now - encoderTimeZeroMs;
     encoderCsvPrevCount = count;
@@ -521,9 +527,9 @@ void setup() {
 }
 
 void loop() {
-  // 루프 안정화를 위한 짧은 지연 (10ms)
+  // 루프 안정화를 위한 짧은 지연
   parseSerial();
-  delay(10);
+  delay(LOOP_DELAY_MS);
 
   parseSerial();
   static unsigned long prev_t_us = 0;
@@ -639,6 +645,7 @@ else { // AUTO_MODE
 
   printEncoderCsv(encoder_local);
 
+#if ENABLE_VERBOSE_DEBUG
   static unsigned long lp = 0;
   if (millis() - lp > 100) {
     long d_encoder = encoder_local - driveLogPrevEncoder;
@@ -673,4 +680,5 @@ Serial.print(" ok:"); Serial.print((int)th_ok);
 Serial.print(" | SA:"); Serial.print(steer_auto_deg, 1);
 Serial.print(" ok:"); Serial.println((int)sa_ok);
   }
+#endif
 }

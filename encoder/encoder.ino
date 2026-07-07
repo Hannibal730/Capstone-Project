@@ -3,15 +3,9 @@
 #include <util/atomic.h>
 
 // [상수/변수 선언부]
-<<<<<<< HEAD
-#define SERIAL_BAUD 57600
-#define ENABLE_VERBOSE_DEBUG 0
-#define ENCODER_STREAM_INTERVAL_MS 100
-=======
 #define SERIAL_BAUD 115200
 #define ENABLE_VERBOSE_DEBUG 0
 #define ENCODER_STREAM_INTERVAL_MS 10
->>>>>>> 774e8432318ff0fbeda0a9437232810176cc1c01
 #define ENCODER_STREAM_MIN_TX_SPACE 32
 #define LOOP_DELAY_MS 2
 #define STEERING_PULSE_PIN 2
@@ -25,13 +19,8 @@
 #define MANUAL_MODE 1400
 #define AUTO_MODE 1700
 
-<<<<<<< HEAD
-#define POT_MAX 900
-#define POT_MIN 10
-=======
 #define POT_MAX 1021
 #define POT_MIN 0
->>>>>>> 774e8432318ff0fbeda0a9437232810176cc1c01
 #define MAX_STEER_TIRE_DEG 24
 
 #define KP 0.05
@@ -474,10 +463,7 @@ void printEncoderCsv(long count) {
     if (Serial.availableForWrite() < ENCODER_STREAM_MIN_TX_SPACE) return;
 
     long dCount = count - encoderCsvPrevCount;
-<<<<<<< HEAD
-=======
     unsigned long dtMs = now - encoderCsvPrevMs;
->>>>>>> 774e8432318ff0fbeda0a9437232810176cc1c01
     unsigned long elapsedMs = now - encoderTimeZeroMs;
     encoderCsvPrevCount = count;
     encoderCsvPrevMs = now;
@@ -487,13 +473,9 @@ void printEncoderCsv(long count) {
     Serial.print(",");
     Serial.print(count);
     Serial.print(",");
-<<<<<<< HEAD
-    Serial.println(dCount);
-=======
     Serial.print(dCount);
     Serial.print(",");
     Serial.println(dtMs);
->>>>>>> 774e8432318ff0fbeda0a9437232810176cc1c01
   }
 }
 

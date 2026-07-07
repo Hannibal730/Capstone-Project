@@ -3,7 +3,9 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy
 from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Float64
 from std_msgs.msg import String
@@ -49,7 +51,10 @@ class EbimuPublisher(Node):
 
 	def __init__(self):
 		super().__init__('ebimu_publisher')
-		qos_profile = QoSProfile(depth=10)
+		debug_qos_profile = QoSProfile(depth=10)
+		imu_qos_profile = QoSProfile(depth=50)
+		imu_qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
+		imu_qos_profile.durability = QoSDurabilityPolicy.VOLATILE
 
 		self.declare_parameter('accel_x_sign', 1.0)
 		self.declare_parameter('accel_y_sign', -1.0)
@@ -62,8 +67,8 @@ class EbimuPublisher(Node):
 		self.declare_parameter('yaw_sign', -1.0)
 		self.declare_parameter('expected_field_count', EXPECTED_FIELD_COUNT)
 		self.declare_parameter('allow_extra_fields_after_accel', True)
-		self.declare_parameter('serial_poll_period_sec', 0.01)
-		self.declare_parameter('imu_publish_rate_hz', 100.0)
+		self.declare_parameter('serial_poll_period_sec', 0.005)
+		self.declare_parameter('imu_publish_rate_hz', 0.0)
 		self.declare_parameter('debug_publish_rate_hz', 10.0)
 		self.declare_parameter('gyro_integration_dt_sec', 0.01)
 		self.declare_parameter('use_integrated_gyro_orientation', True)
@@ -97,27 +102,33 @@ class EbimuPublisher(Node):
 			self.get_parameter('use_integrated_gyro_orientation').value
 		)
 
-		self.publisher = self.create_publisher(String, 'ebimu_data', qos_profile)
-		self.roll_publisher = self.create_publisher(Float64, 'imu/roll', qos_profile)
-		self.pitch_publisher = self.create_publisher(Float64, 'imu/pitch', qos_profile)
-		self.yaw_publisher = self.create_publisher(Float64, 'imu/yaw', qos_profile)
-		self.gyro_angle_x_publisher = self.create_publisher(Float64, 'imu/gyro_angle/x', qos_profile)
-		self.gyro_angle_y_publisher = self.create_publisher(Float64, 'imu/gyro_angle/y', qos_profile)
-		self.gyro_angle_z_publisher = self.create_publisher(Float64, 'imu/gyro_angle/z', qos_profile)
-		self.gyro_angle_roll_publisher = self.create_publisher(Float64, 'imu/gyro_angle_deg/roll', qos_profile)
-		self.gyro_angle_pitch_publisher = self.create_publisher(Float64, 'imu/gyro_angle_deg/pitch', qos_profile)
-		self.gyro_angle_yaw_publisher = self.create_publisher(Float64, 'imu/gyro_angle_deg/yaw', qos_profile)
-		self.ax_publisher = self.create_publisher(Float64, 'imu/accel/x', qos_profile)
-		self.ay_publisher = self.create_publisher(Float64, 'imu/accel/y', qos_profile)
-		self.az_publisher = self.create_publisher(Float64, 'imu/accel/z', qos_profile)
-		self.gx_publisher = self.create_publisher(Float64, 'imu/gyro/x', qos_profile)
-		self.gy_publisher = self.create_publisher(Float64, 'imu/gyro/y', qos_profile)
-		self.gz_publisher = self.create_publisher(Float64, 'imu/gyro/z', qos_profile)
-		self.imu_publisher = self.create_publisher(Imu, 'imu/data', qos_profile)
+		self.publisher = self.create_publisher(String, 'ebimu_data', debug_qos_profile)
+		self.roll_publisher = self.create_publisher(Float64, 'imu/roll', debug_qos_profile)
+		self.pitch_publisher = self.create_publisher(Float64, 'imu/pitch', debug_qos_profile)
+		self.yaw_publisher = self.create_publisher(Float64, 'imu/yaw', debug_qos_profile)
+		self.gyro_angle_x_publisher = self.create_publisher(Float64, 'imu/gyro_angle/x', debug_qos_profile)
+		self.gyro_angle_y_publisher = self.create_publisher(Float64, 'imu/gyro_angle/y', debug_qos_profile)
+		self.gyro_angle_z_publisher = self.create_publisher(Float64, 'imu/gyro_angle/z', debug_qos_profile)
+		self.gyro_angle_roll_publisher = self.create_publisher(Float64, 'imu/gyro_angle_deg/roll', debug_qos_profile)
+		self.gyro_angle_pitch_publisher = self.create_publisher(Float64, 'imu/gyro_angle_deg/pitch', debug_qos_profile)
+		self.gyro_angle_yaw_publisher = self.create_publisher(Float64, 'imu/gyro_angle_deg/yaw', debug_qos_profile)
+		self.ax_publisher = self.create_publisher(Float64, 'imu/accel/x', debug_qos_profile)
+		self.ay_publisher = self.create_publisher(Float64, 'imu/accel/y', debug_qos_profile)
+		self.az_publisher = self.create_publisher(Float64, 'imu/accel/z', debug_qos_profile)
+		self.gx_publisher = self.create_publisher(Float64, 'imu/gyro/x', debug_qos_profile)
+		self.gy_publisher = self.create_publisher(Float64, 'imu/gyro/y', debug_qos_profile)
+		self.gz_publisher = self.create_publisher(Float64, 'imu/gyro/z', debug_qos_profile)
+		self.imu_publisher = self.create_publisher(Imu, 'imu/data', imu_qos_profile)
 
 		self.invalid_sample_count = 0
 		self.empty_read_count = 0
 		self.first_packet_logged = False
+		self.valid_packet_count = 0
+		self.imu_publish_count = 0
+		self.rate_window_valid_count = 0
+		self.rate_window_publish_count = 0
+		self.rate_window_start_time = 0.0
+		self.last_valid_packet_time = 0.0
 		self.last_imu_publish_time = 0.0
 		self.last_debug_publish_time = 0.0
 		self.last_log_times = {}
@@ -139,9 +150,13 @@ class EbimuPublisher(Node):
 		raw = raw_bytes.decode('ascii', errors='ignore').strip()
 		if not raw:
 			self.empty_read_count += 1
-			if self.empty_read_count % 300 == 0:
-				self.get_logger().warn(
-					'No serial data. Check EBIMU power, port, baudrate, and output mode.'
+			now_sec = self.get_clock().now().nanoseconds * 1e-9
+			if self.last_valid_packet_time <= 0.0 or now_sec - self.last_valid_packet_time > 1.0:
+				self.log_throttled(
+					'no_serial_data',
+					'No valid EBIMU serial packet for more than 1 second. '
+					'Check power, port, baudrate, and output mode.',
+					'warn',
 				)
 			return
 
@@ -200,6 +215,9 @@ class EbimuPublisher(Node):
 			)
 
 		now_sec = self.get_clock().now().nanoseconds * 1e-9
+		self.last_valid_packet_time = now_sec
+		self.valid_packet_count += 1
+		self.rate_window_valid_count += 1
 		if self.should_publish(
 			now_sec, self.last_debug_publish_time, self.debug_publish_period
 		):
@@ -220,7 +238,10 @@ class EbimuPublisher(Node):
 		if self.should_publish(now_sec, self.last_imu_publish_time, self.imu_publish_period):
 			self.publish_imu(roll_deg, pitch_deg, yaw_deg, gx, gy, gz, ax, ay, az)
 			self.publish_gyro_angles()
+			self.imu_publish_count += 1
+			self.rate_window_publish_count += 1
 			self.last_imu_publish_time = now_sec
+		self.log_rate_window(now_sec)
 
 	def publish_imu(self, roll_deg, pitch_deg, yaw_deg, gx, gy, gz, ax, ay, az):
 		msg = Imu()
@@ -307,6 +328,28 @@ class EbimuPublisher(Node):
 			f'raw="{raw}", mode=ASCII Euler+gyro+accel',
 			'warn',
 		)
+
+	def log_rate_window(self, now_sec):
+		if self.rate_window_start_time <= 0.0:
+			self.rate_window_start_time = now_sec
+			return
+
+		elapsed = now_sec - self.rate_window_start_time
+		if elapsed < 1.0:
+			return
+
+		valid_hz = self.rate_window_valid_count / elapsed
+		imu_hz = self.rate_window_publish_count / elapsed
+		self.get_logger().info(
+			f'EBIMU rate: valid_packets={valid_hz:.1f} Hz, '
+			f'imu/data={imu_hz:.1f} Hz, '
+			f'total_valid={self.valid_packet_count}, '
+			f'total_published={self.imu_publish_count}, '
+			f'invalid={self.invalid_sample_count}, empty={self.empty_read_count}'
+		)
+		self.rate_window_start_time = now_sec
+		self.rate_window_valid_count = 0
+		self.rate_window_publish_count = 0
 
 	def log_throttled(self, key, message, level='info', period=2.0):
 		now = self.get_clock().now().nanoseconds * 1e-9

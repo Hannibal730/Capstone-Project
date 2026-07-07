@@ -11,21 +11,24 @@ ebimu_publisher:
     yaw_sign: -1.0
     expected_field_count: 9
     allow_extra_fields_after_accel: true
-    serial_poll_period_sec: 0.01
-    imu_publish_rate_hz: 100.0
+    serial_poll_period_sec: 0.005
+    imu_publish_rate_hz: 0.0
     debug_publish_rate_hz: 10.0
     gyro_integration_dt_sec: 0.01
     use_integrated_gyro_orientation: true
 
 imu_odometry:
   ros__parameters:
+    odom_topic: imu/odom
+    path_topic: imu/path
+    publish_tf: false
     calibration_duration_sec: 5.0
     calibration_min_samples: 200
-    forward_accel_axis: y
+    forward_accel_axis: "y"
     forward_accel_sign: 1.0
-    left_accel_axis: x
+    left_accel_axis: "x"
     left_accel_sign: -1.0
-    yaw_gyro_axis: z
+    yaw_gyro_axis: "z"
     yaw_rate_sign: -1.0
     max_dt_sec: 0.2
     enable_stationary_guard: true
@@ -43,7 +46,7 @@ imu_odometry:
     odom_publish_rate_hz: 100.0
     path_publish_rate_hz: 5.0
     path_min_distance: 0.02
-    path_max_length: 300
+    path_max_length: 2000
     odom_frame_id: odom
     base_frame_id: base_link
 
@@ -59,7 +62,7 @@ encoder_imu_odometry:
     odom_publish_rate_hz: 100.0
     path_publish_rate_hz: 5.0
     path_min_distance: 0.02
-    path_max_length: 300
+    path_max_length: 2000
     max_dt_sec: 0.2
     sensor_timeout_sec: 0.2
     odom_frame_id: odom

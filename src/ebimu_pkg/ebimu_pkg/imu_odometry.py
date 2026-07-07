@@ -6,6 +6,9 @@ from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from nav_msgs.msg import Path
 from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Bool
 from tf2_ros import TransformBroadcaster
@@ -15,13 +18,25 @@ class ImuOdometry(Node):
 
 	def __init__(self):
 		super().__init__('imu_odometry')
-		self.subscription = self.create_subscription(Imu, 'imu/data', self.callback, 10)
+		self.declare_parameter('odom_topic', 'odom')
+		self.declare_parameter('path_topic', 'imu/path')
+		self.declare_parameter('publish_tf', True)
+		self.odom_topic = self.get_parameter('odom_topic').value
+		self.path_topic = self.get_parameter('path_topic').value
+		self.publish_tf_enabled = bool(self.get_parameter('publish_tf').value)
+
+		imu_qos_profile = QoSProfile(depth=50)
+		imu_qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
+		imu_qos_profile.durability = QoSDurabilityPolicy.VOLATILE
+		self.subscription = self.create_subscription(
+			Imu, 'imu/data', self.callback, imu_qos_profile
+		)
 		self.zupt_subscription = self.create_subscription(
 			Bool, 'imu/zero_velocity', self.zero_velocity_callback, 10
 		)
-		self.odom_publisher = self.create_publisher(Odometry, 'odom', 10)
-		self.path_publisher = self.create_publisher(Path, 'imu/path', 10)
-		self.tf_broadcaster = TransformBroadcaster(self)
+		self.odom_publisher = self.create_publisher(Odometry, self.odom_topic, 10)
+		self.path_publisher = self.create_publisher(Path, self.path_topic, 10)
+		self.tf_broadcaster = TransformBroadcaster(self) if self.publish_tf_enabled else None
 
 		self.declare_parameter('calibration_duration_sec', 5.0)
 		self.declare_parameter('calibration_min_samples', 200)
@@ -364,6 +379,9 @@ class ImuOdometry(Node):
 		self.path_publisher.publish(self.path)
 
 	def publish_tf(self, imu_msg, q):
+		if not self.publish_tf_enabled:
+			return
+
 		transform = TransformStamped()
 		transform.header.stamp = imu_msg.header.stamp
 		transform.header.frame_id = self.odom_frame_id

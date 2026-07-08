@@ -20,15 +20,8 @@ setup(
     maintainer='Rob Fisher',
     maintainer_email='rob.fisher@parker.com',
     keywords=['ROS'],
-    classifiers=[
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT Software License',
-        'Programming Language :: Python',
-        'Topic :: Software Development',
-    ],
     description='NTRIP client that will publish RTCM corrections to a ROS topic, and optionally subscribe to NMEA messages to send to an NTRIP server',
     license='MIT License',
-    tests_require=['pytest'],
     scripts=[
       'scripts/ntrip_ros.py'
     ]

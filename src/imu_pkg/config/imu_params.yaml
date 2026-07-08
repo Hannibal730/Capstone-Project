@@ -1,0 +1,21 @@
+ebimu_publisher:
+  ros__parameters:
+    serial_port: /dev/ttyACM1
+    baudrate: 115200
+    accel_x_sign: 1.0
+    accel_y_sign: -1.0
+    accel_z_sign: 1.0
+    gyro_x_sign: 1.0
+    gyro_y_sign: -1.0
+    gyro_z_sign: -1.0
+    roll_sign: 1.0
+    pitch_sign: -1.0
+    yaw_sign: -1.0
+    expected_field_count: 9
+    allow_extra_fields_after_accel: true
+    serial_poll_period_sec: 0.005
+    imu_publish_rate_hz: 0.0
+    debug_publish_rate_hz: 10.0
+    gyro_integration_dt_sec: 0.01
+    use_integrated_gyro_orientation: true
+

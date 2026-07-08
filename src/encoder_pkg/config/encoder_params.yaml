@@ -1,0 +1,7 @@
+encoder_publisher:
+  ros__parameters:
+    serial_port: /dev/ttyACM0
+    baudrate: 115200
+    poll_period_sec: 0.01
+    meters_per_pulse: 0.0028628686
+

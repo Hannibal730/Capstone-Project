@@ -28,6 +28,13 @@ def generate_launch_description():
         ),
         Node(
             package='ebimu_pkg',
+            executable='ebimu_publisher',
+            name='ebimu_publisher',
+            output='screen',
+            parameters=[params_file],
+        ),
+        Node(
+            package='ebimu_pkg',
             executable='encoder_publisher',
             name='encoder_publisher',
             output='screen',

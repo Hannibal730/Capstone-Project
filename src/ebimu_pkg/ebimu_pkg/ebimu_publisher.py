@@ -16,37 +16,6 @@ EXPECTED_FIELD_COUNT = 9
 GRAVITY = 9.80665
 
 
-def open_serial():
-	port = '/dev/tty' + input('EBIMU Port: /dev/tty').strip()
-	baudrate = input('Baudrate: ').strip()
-	try:
-		return serial.Serial(port=port, baudrate=baudrate, timeout=0.002)
-	except serial.SerialException:
-		print('Serial port error!')
-		raise
-
-
-ser = open_serial()
-
-
-def configure_ebimu_runtime_only():
-	commands = [
-		'<start>',
-		'<soc1>',
-		'<sof1>',
-		'<sog1>',
-		'<soa1>',
-		'<som0>',
-		'<sod0>',
-		'<sor10>',
-	]
-	for command in commands:
-		ser.write(command.encode('ascii'))
-		ser.flush()
-		time.sleep(0.08)
-	print('EBIMU runtime config sent: ASCII + Euler + gyro + accel, 100 Hz')
-
-
 class EbimuPublisher(Node):
 
 	def __init__(self):
@@ -56,6 +25,8 @@ class EbimuPublisher(Node):
 		imu_qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 		imu_qos_profile.durability = QoSDurabilityPolicy.VOLATILE
 
+		self.declare_parameter('serial_port', '/dev/ttyACM1')
+		self.declare_parameter('baudrate', 115200)
 		self.declare_parameter('accel_x_sign', 1.0)
 		self.declare_parameter('accel_y_sign', -1.0)
 		self.declare_parameter('accel_z_sign', 1.0)
@@ -73,6 +44,8 @@ class EbimuPublisher(Node):
 		self.declare_parameter('gyro_integration_dt_sec', 0.01)
 		self.declare_parameter('use_integrated_gyro_orientation', True)
 
+		self.serial_port = self.get_parameter('serial_port').value
+		self.baudrate = int(self.get_parameter('baudrate').value)
 		self.accel_x_sign = float(self.get_parameter('accel_x_sign').value)
 		self.accel_y_sign = float(self.get_parameter('accel_y_sign').value)
 		self.accel_z_sign = float(self.get_parameter('accel_z_sign').value)
@@ -101,6 +74,9 @@ class EbimuPublisher(Node):
 		self.use_integrated_gyro_orientation = bool(
 			self.get_parameter('use_integrated_gyro_orientation').value
 		)
+
+		self.ser = self.open_serial()
+		self.configure_ebimu_runtime_only()
 
 		self.publisher = self.create_publisher(String, 'ebimu_data', debug_qos_profile)
 		self.roll_publisher = self.create_publisher(Float64, 'imu/roll', debug_qos_profile)
@@ -135,9 +111,42 @@ class EbimuPublisher(Node):
 		self.gyro_angle = [0.0, 0.0, 0.0]
 		self.timer = self.create_timer(self.serial_poll_period_sec, self.timer_callback)
 
+	def open_serial(self):
+		try:
+			self.get_logger().info(
+				f'Opening EBIMU serial port {self.serial_port} @ {self.baudrate}'
+			)
+			return serial.Serial(
+				port=self.serial_port,
+				baudrate=self.baudrate,
+				timeout=0.002,
+			)
+		except serial.SerialException as exc:
+			self.get_logger().error(f'Failed to open EBIMU serial port: {exc}')
+			raise
+
+	def configure_ebimu_runtime_only(self):
+		commands = [
+			'<start>',
+			'<soc1>',
+			'<sof1>',
+			'<sog1>',
+			'<soa1>',
+			'<som0>',
+			'<sod0>',
+			'<sor10>',
+		]
+		for command in commands:
+			self.ser.write(command.encode('ascii'))
+			self.ser.flush()
+			time.sleep(0.08)
+		self.get_logger().info(
+			'EBIMU runtime config sent: ASCII + Euler + gyro + accel, 100 Hz'
+		)
+
 	def timer_callback(self):
 		try:
-			raw_bytes = ser.readline()
+			raw_bytes = self.ser.readline()
 		except serial.SerialException as exc:
 			self.log_throttled(
 				'serial_read',
@@ -368,6 +377,12 @@ class EbimuPublisher(Node):
 	def normalize_angle(self, angle):
 		return math.atan2(math.sin(angle), math.cos(angle))
 
+	def close_serial(self):
+		try:
+			self.ser.close()
+		except Exception:
+			pass
+
 	def euler_to_quaternion(self, roll, pitch, yaw):
 		cy = math.cos(yaw * 0.5)
 		sy = math.sin(yaw * 0.5)
@@ -387,11 +402,11 @@ class EbimuPublisher(Node):
 def main(args=None):
 	rclpy.init(args=args)
 	print('Starting ebimu_publisher..')
-	configure_ebimu_runtime_only()
 	node = EbimuPublisher()
 	try:
 		rclpy.spin(node)
 	finally:
+		node.close_serial()
 		node.destroy_node()
 		rclpy.shutdown()
 

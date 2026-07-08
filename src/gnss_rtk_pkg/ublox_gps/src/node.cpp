@@ -241,6 +241,10 @@ void UbloxNode::addProductInterface(const std::string & product_category,
 
 void UbloxNode::getRosParams() {
   device_ = this->declare_parameter("device", std::string("/dev/ttyACM0"));
+  std::string serial_port = this->declare_parameter("serial_port", std::string(""));
+  if (!serial_port.empty()) {
+    device_ = serial_port;
+  }
   frame_id_ = this->declare_parameter("frame_id", std::string("gps"));
 
   // Save configuration parameters
@@ -251,6 +255,10 @@ void UbloxNode::getRosParams() {
 
   // UART 1 params
   baudrate_ = declareRosIntParameter<uint32_t>(this, "uart1.baudrate", 9600);
+  int baudrate = this->declare_parameter("baudrate", 0);
+  if (baudrate > 0) {
+    baudrate_ = static_cast<uint32_t>(baudrate);
+  }
   uart_in_ = declareRosIntParameter<uint16_t>(this, "uart1.in", ublox_msgs::msg::CfgPRT::PROTO_UBX
                                               | ublox_msgs::msg::CfgPRT::PROTO_NMEA
                                               | ublox_msgs::msg::CfgPRT::PROTO_RTCM3);

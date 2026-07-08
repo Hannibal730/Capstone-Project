@@ -37,6 +37,9 @@ import os
 import ament_index_python.packages
 import launch
 import launch_ros.actions
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -44,15 +47,37 @@ def generate_launch_description():
         ament_index_python.packages.get_package_share_directory('ublox_gps'),
         'config')
     params = os.path.join(config_directory, 'zed_f9p.yaml')
+    serial_port = LaunchConfiguration('serial_port')
+    baudrate = LaunchConfiguration('baudrate')
+
     ublox_gps_node = launch_ros.actions.Node(package='ublox_gps',
                                              executable='ublox_gps_node',
                                              output='screen',
-                                             parameters=[params],
+                                             parameters=[
+                                                 params,
+                                                 {
+                                                     'device': serial_port,
+                                                     'serial_port': serial_port,
+                                                     'uart1.baudrate': ParameterValue(baudrate, value_type=int),
+                                                     'baudrate': ParameterValue(baudrate, value_type=int),
+                                                 },
+                                             ],
                                              remappings=[('/ublox_gps_node/fix', '/f9p/fix'),
                                                          ('/ublox_gps_node/fix_velocity', '/f9p/fix_velocity'),]
                                              )
 
-    return launch.LaunchDescription([ublox_gps_node,
+    return launch.LaunchDescription([
+                                     DeclareLaunchArgument(
+                                         'serial_port',
+                                         default_value='/dev/ttyACM1',
+                                         description='Serial device for the ZED-F9P receiver.',
+                                     ),
+                                     DeclareLaunchArgument(
+                                         'baudrate',
+                                         default_value='115200',
+                                         description='Serial baudrate for the ZED-F9P receiver.',
+                                     ),
+                                     ublox_gps_node,
 
                                      launch.actions.RegisterEventHandler(
                                          event_handler=launch.event_handlers.OnProcessExit(

@@ -26,7 +26,7 @@ class EncoderImuOdometry(Node):
         self.declare_parameter('odom_frame_id', 'odom')
         self.declare_parameter('base_frame_id', 'base_link')
         self.declare_parameter('publish_tf', True)
-        self.declare_parameter('imu_offset_x', 0.85)
+        self.declare_parameter('imu_offset_x', 0.0)
         self.declare_parameter('heading_topic', 'imu/gyro_angle/z')
 
         self.odom_publish_period = self.period_from_rate(

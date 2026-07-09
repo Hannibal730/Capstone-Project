@@ -49,4 +49,5 @@ encoder_imu_odometry:
     sensor_timeout_sec: 0.2
     odom_frame_id: odom
     base_frame_id: base_link
+    imu_offset_x: 0.0
     heading_topic: imu/gyro_angle/z

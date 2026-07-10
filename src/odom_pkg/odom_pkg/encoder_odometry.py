@@ -24,6 +24,7 @@ class EncoderOdometry(Node):
         self.declare_parameter('odom_frame_id', 'odom')
         self.declare_parameter('base_frame_id', 'base_link')
         self.declare_parameter('heading_rad', 0.0)
+        self.declare_parameter('publish_tf', True)
 
         self.odom_publish_period = self.period_from_rate(
             float(self.get_parameter('odom_publish_rate_hz').value)
@@ -37,6 +38,7 @@ class EncoderOdometry(Node):
         self.odom_frame_id = self.get_parameter('odom_frame_id').value
         self.base_frame_id = self.get_parameter('base_frame_id').value
         self.heading_rad = float(self.get_parameter('heading_rad').value)
+        self.publish_tf_enabled = bool(self.get_parameter('publish_tf').value)
 
         self.position = [0.0, 0.0, 0.0]
         self.velocity = [0.0, 0.0, 0.0]
@@ -46,9 +48,9 @@ class EncoderOdometry(Node):
         self.last_path_position = None
         self.current_speed = 0.0
 
-        self.odom_publisher = self.create_publisher(Odometry, 'odom', 10)
-        self.path_publisher = self.create_publisher(Path, '/odom/path', 10)
-        self.tf_broadcaster = TransformBroadcaster(self)
+        self.odom_publisher = self.create_publisher(Odometry, '/odom/encoder', 10)
+        self.path_publisher = self.create_publisher(Path, '/odom/encoder/path', 10)
+        self.tf_broadcaster = TransformBroadcaster(self) if self.publish_tf_enabled else None
 
         self.speed_subscription = self.create_subscription(Float64, 'encoder/speed', self.speed_callback, 10)
         self.distance_subscription = self.create_subscription(Float64, 'encoder/distance', self.distance_callback, 10)
@@ -84,7 +86,8 @@ class EncoderOdometry(Node):
         if self.should_publish(stamp_time, self.last_odom_publish_time, self.odom_publish_period):
             q = self.yaw_to_quaternion(self.heading_rad)
             self.publish_odometry(stamp, q)
-            self.publish_tf(stamp, q)
+            if self.publish_tf_enabled:
+                self.publish_tf(stamp, q)
             self.last_odom_publish_time = stamp_time
 
         if self.should_publish(stamp_time, self.last_path_publish_time, self.path_publish_period):

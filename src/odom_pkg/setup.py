@@ -26,8 +26,7 @@ setup(
             'imu_odometry = odom_pkg.imu_odometry:main',
             'encoder_odometry = odom_pkg.encoder_odometry:main',
             'encoder_imu_odometry = odom_pkg.encoder_imu_odometry:main',
-            'ekf_filter = odom_pkg.ekf_filter:main',
-            'filtered_path = odom_pkg.filtered_path:main',
+            'ekf_encoder_imu_odometry = odom_pkg.ekf_encoder_imu_odometry:main',
         ],
     },
 )

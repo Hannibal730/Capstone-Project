@@ -49,7 +49,6 @@ class EncoderImuOdometry(Node):
         self.last_yaw = 0.0
         self.yaw_rate = 0.0
         self.position = [0.0, 0.0, 0.0]
-        self.encoder_position = [0.0, 0.0, 0.0]
         self.velocity = [0.0, 0.0, 0.0]
         self.last_time = None
         self.last_speed = 0.0
@@ -59,16 +58,11 @@ class EncoderImuOdometry(Node):
         self.last_encoder_distance = None
         self.last_distance_time = None
         self.last_path_position = None
-        self.last_encoder_path_position = None
         self.last_path_publish_time = None
         self.last_log_times = {}
 
-        self.odom_publisher = self.create_publisher(Odometry, 'odom', 10)
-        self.encoder_imu_odom_publisher = self.create_publisher(Odometry, 'encoder_imu/odom', 10)
-        self.encoder_odom_publisher = self.create_publisher(Odometry, 'encoder/odom', 10)
-        self.path_publisher = self.create_publisher(Path, 'encoder_imu/path', 10)
-        self.legacy_path_publisher = self.create_publisher(Path, '/odom/path', 10)
-        self.encoder_path_publisher = self.create_publisher(Path, 'encoder/path', 10)
+        self.encoder_imu_odom_publisher = self.create_publisher(Odometry, '/odom/encoder_imu', 10)
+        self.path_publisher = self.create_publisher(Path, '/odom/encoder_imu/path', 10)
         self.tf_broadcaster = TransformBroadcaster(self) if self.publish_tf_enabled else None
         self.static_tf_broadcaster = StaticTransformBroadcaster(self)
         self.publish_sensor_transforms()
@@ -84,8 +78,6 @@ class EncoderImuOdometry(Node):
 
         self.path = Path()
         self.path.header.frame_id = self.odom_frame_id
-        self.encoder_path = Path()
-        self.encoder_path.header.frame_id = self.odom_frame_id
         self.odom_timer = self.create_timer(self.odom_publish_period, self.timer_callback)
         heading_topic_log = self.heading_topic
         if not heading_topic_log.startswith('/'):
@@ -136,7 +128,6 @@ class EncoderImuOdometry(Node):
             delta_distance = distance - self.last_encoder_distance
             self.position[0] += math.cos(self.yaw) * delta_distance
             self.position[1] += math.sin(self.yaw) * delta_distance
-            self.encoder_position[0] += delta_distance
 
         self.encoder_distance = distance
         self.last_encoder_distance = distance
@@ -167,15 +158,12 @@ class EncoderImuOdometry(Node):
         self.velocity[2] = 0.0
 
         q = self.yaw_to_quaternion(self.yaw)
-        encoder_q = self.yaw_to_quaternion(0.0)
         self.publish_odometry(stamp, q, yaw_rate)
-        self.publish_encoder_odometry(stamp, encoder_q)
         if self.publish_tf_enabled:
             self.publish_tf(stamp, q)
 
         if self.should_publish(stamp_time, self.last_path_publish_time, self.path_publish_period):
             self.publish_path(stamp, q)
-            self.publish_encoder_path(stamp, encoder_q)
             self.last_path_publish_time = stamp_time
 
     def publish_odometry(self, stamp, q, yaw_rate):
@@ -191,23 +179,7 @@ class EncoderImuOdometry(Node):
         msg.twist.twist.linear.y = self.velocity[1]
         msg.twist.twist.linear.z = self.velocity[2]
         msg.twist.twist.angular.z = yaw_rate
-        self.odom_publisher.publish(msg)
         self.encoder_imu_odom_publisher.publish(msg)
-
-    def publish_encoder_odometry(self, stamp, q):
-        msg = Odometry()
-        msg.header.stamp = stamp.to_msg()
-        msg.header.frame_id = self.odom_frame_id
-        msg.child_frame_id = 'encoder_link'
-        msg.pose.pose.position.x = self.encoder_position[0]
-        msg.pose.pose.position.y = self.encoder_position[1]
-        msg.pose.pose.position.z = 0.0
-        msg.pose.pose.orientation = q
-        msg.twist.twist.linear.x = self.velocity[0]
-        msg.twist.twist.linear.y = 0.0
-        msg.twist.twist.linear.z = 0.0
-        msg.twist.twist.angular.z = 0.0
-        self.encoder_odom_publisher.publish(msg)
 
     def publish_path(self, stamp, q):
         if self.last_path_position is not None:
@@ -230,29 +202,6 @@ class EncoderImuOdometry(Node):
         self.path.poses.append(pose)
         self.path.poses = self.path.poses[-self.path_max_length:]
         self.path_publisher.publish(self.path)
-        self.legacy_path_publisher.publish(self.path)
-
-    def publish_encoder_path(self, stamp, q):
-        if self.last_encoder_path_position is not None:
-            distance = math.hypot(
-                self.encoder_position[0] - self.last_encoder_path_position[0],
-                self.encoder_position[1] - self.last_encoder_path_position[1],
-            )
-            if distance < self.path_min_distance:
-                return
-
-        self.last_encoder_path_position = list(self.encoder_position)
-        pose = PoseStamped()
-        pose.header.stamp = stamp.to_msg()
-        pose.header.frame_id = self.odom_frame_id
-        pose.pose.position.x = self.encoder_position[0]
-        pose.pose.position.y = self.encoder_position[1]
-        pose.pose.position.z = 0.0
-        pose.pose.orientation = q
-        self.encoder_path.header.stamp = stamp.to_msg()
-        self.encoder_path.poses.append(pose)
-        self.encoder_path.poses = self.encoder_path.poses[-self.path_max_length:]
-        self.encoder_path_publisher.publish(self.encoder_path)
 
     def publish_tf(self, stamp, q):
         transform = TransformStamped()

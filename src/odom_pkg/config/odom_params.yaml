@@ -1,7 +1,7 @@
 imu_odometry:
   ros__parameters:
-    odom_topic: imu/odom
-    path_topic: imu/path
+    odom_topic: /odom/imu
+    path_topic: /odom/imu/path
     publish_tf: false
     calibration_duration_sec: 5.0
     calibration_min_samples: 200
@@ -30,6 +30,7 @@ imu_odometry:
 
 encoder_odometry:
   ros__parameters:
+    publish_tf: false
     odom_publish_rate_hz: 30.0
     path_publish_rate_hz: 5.0
     path_min_distance: 0.02
@@ -41,6 +42,7 @@ encoder_odometry:
 
 encoder_imu_odometry:
   ros__parameters:
+    publish_tf: false
     odom_publish_rate_hz: 100.0
     path_publish_rate_hz: 5.0
     path_min_distance: 0.02

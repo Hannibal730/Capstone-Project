@@ -35,26 +35,47 @@ ros2 run imu_pkg imu_publisher --ros-args \
   -p baudrate:=115200
 ```
 
-## `/odom/*`, `/tf`
+## `/odom/encoder*`
+```
+ros2 run odom_pkg encoder_odometry --ros-args \
+  --params-file src/odom_pkg/config/odom_params.yaml \
+  -p publish_tf:=false
+```
+
+## `/odom/imu*`
+IMU 단독 dead-reckoning (gyro z yaw 적분 + 전진 가속도 적분).
+시작 시 센서를 완전히 정지시킨 채 캘리브레이션(기본 5초)이 진행된다.
+```
+ros2 run odom_pkg imu_odometry --ros-args \
+  --params-file src/odom_pkg/config/odom_params.yaml \
+  -p publish_tf:=false
+```
+
+## `/odom/encoder_imu*`
+raw dead-reckoning (엔코더+IMU 단순 적분).
 ```
 ros2 run odom_pkg encoder_imu_odometry --ros-args \
   --params-file src/odom_pkg/config/odom_params.yaml \
   -p publish_tf:=false
 ```
 
-## `/odometry/filtered/*`
+## `/odom/ekf_encoder_imu*`
+EKF는 `/odom/encoder` + `/imu/data`를 융합한다. 이 노드는 `ekf_node`를 실행하고 필터 결과 path를 만들 뿐, 입력원을 직접 띄우지 않는다. 따라서 실행 전에 EKF 입력원을 먼저 켜야 한다:
+- `/imu/*` publisher (위 `/imu/*` 항목)
+- `/odom/encoder*` (위 `/odom/encoder*` 항목, `publish_tf:=false`)
 ```
-ros2 run odom_pkg ekf_filter
+ros2 run odom_pkg ekf_encoder_imu_odometry
 ```
 
-## `/f9p/*`, `/ublox_gps_node/*`
+
+<!-- ## `/f9p/*`, `/ublox_gps_node/*`
 ```
 ros2 launch ublox_gps ublox_f9p_launch.py serial_port:=/dev/ttyUSB0 baudrate:=115200
 ```
 
 ## `/f9r/*`, `/ublox_gps_node/*`
 ```
-ros2 launch ublox_gps ublox_f9r_launch.py serial_port:=/dev/ttyUSB1 baudrate:=115200
+ros2 launch ublox_gps ublox_f9r_launch.py serial_port:=/dev/ttyUSB1 baudrate:=115200 -->
 ```
 
 # ROS BAG 만들기

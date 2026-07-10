@@ -136,6 +136,10 @@ class ImuOdometry(Node):
 		self.path = Path()
 		self.path.header.frame_id = self.odom_frame_id
 		self.last_log_times = {}
+		self.path_timer = self.create_timer(
+			self.path_publish_period if self.path_publish_period > 0.0 else 0.2,
+			self.publish_path,
+		)
 
 	def zero_velocity_callback(self, msg):
 		if not msg.data:
@@ -256,11 +260,7 @@ class ImuOdometry(Node):
 			self.publish_odometry(msg, q)
 			self.publish_tf(msg, q)
 			self.last_odom_publish_time = stamp_time
-		if self.should_publish(
-			stamp_time, self.last_path_publish_time, self.path_publish_period
-		):
-			self.publish_path(msg, q)
-			self.last_path_publish_time = stamp_time
+		self.update_path(msg, q)
 
 	def collect_calibration(self, stamp_time, forward_accel, left_accel, yaw_rate):
 		if self.calibration_start_time is None:
@@ -351,7 +351,7 @@ class ImuOdometry(Node):
 		]
 		self.odom_publisher.publish(msg)
 
-	def publish_path(self, imu_msg, q):
+	def update_path(self, imu_msg, q):
 		if self.last_path_position is not None:
 			distance = math.hypot(
 				self.position[0] - self.last_path_position[0],
@@ -370,6 +370,10 @@ class ImuOdometry(Node):
 		self.path.header.stamp = imu_msg.header.stamp
 		self.path.poses.append(pose)
 		self.path.poses = self.path.poses[-self.path_max_length:]
+
+	def publish_path(self):
+		if not self.path.poses:
+			return
 		self.path_publisher.publish(self.path)
 
 	def publish_tf(self, imu_msg, q):

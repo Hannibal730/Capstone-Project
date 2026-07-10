@@ -79,6 +79,10 @@ class EncoderImuOdometry(Node):
         self.path = Path()
         self.path.header.frame_id = self.odom_frame_id
         self.odom_timer = self.create_timer(self.odom_publish_period, self.timer_callback)
+        self.path_timer = self.create_timer(
+            self.path_publish_period if self.path_publish_period > 0.0 else 0.2,
+            self.publish_path,
+        )
         heading_topic_log = self.heading_topic
         if not heading_topic_log.startswith('/'):
             heading_topic_log = '/' + heading_topic_log
@@ -162,9 +166,7 @@ class EncoderImuOdometry(Node):
         if self.publish_tf_enabled:
             self.publish_tf(stamp, q)
 
-        if self.should_publish(stamp_time, self.last_path_publish_time, self.path_publish_period):
-            self.publish_path(stamp, q)
-            self.last_path_publish_time = stamp_time
+        self.update_path(stamp, q)
 
     def publish_odometry(self, stamp, q, yaw_rate):
         msg = Odometry()
@@ -181,7 +183,7 @@ class EncoderImuOdometry(Node):
         msg.twist.twist.angular.z = yaw_rate
         self.encoder_imu_odom_publisher.publish(msg)
 
-    def publish_path(self, stamp, q):
+    def update_path(self, stamp, q):
         if self.last_path_position is not None:
             distance = math.hypot(
                 self.position[0] - self.last_path_position[0],
@@ -201,6 +203,10 @@ class EncoderImuOdometry(Node):
         self.path.header.stamp = stamp.to_msg()
         self.path.poses.append(pose)
         self.path.poses = self.path.poses[-self.path_max_length:]
+
+    def publish_path(self):
+        if not self.path.poses:
+            return
         self.path_publisher.publish(self.path)
 
     def publish_tf(self, stamp, q):

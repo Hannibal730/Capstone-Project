@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# vehicle_serial_bridge
+# serial_bridge
 # --------------------------------------------------------------------------
 # 차량 MCU(mando_final_ver2.ino)와 통신하는 "유일한 시리얼 게이트웨이" 노드.
 # 하나의 시리얼 포트를 단독 소유하고 다음을 모두 담당한다(양방향):
@@ -41,7 +41,7 @@ import serial
 
 class VehicleSerialBridge(Node):
     def __init__(self):
-        super().__init__('vehicle_serial_bridge')
+        super().__init__('serial_bridge')
 
         # ---------------- 파라미터 ----------------
         # 시리얼
@@ -120,7 +120,7 @@ class VehicleSerialBridge(Node):
         self._tx_th.start()
 
         self.get_logger().info(
-            f"vehicle_serial_bridge up: {self.serial_port}@{self.baudrate} | "
+            f"serial_bridge up: {self.serial_port}@{self.baudrate} | "
             f"L={self.L}m v_max={self.v_max}m/s max_steer={self.max_steer}deg | "
             f"cmd_vel='{g('cmd_vel_topic')}'"
         )

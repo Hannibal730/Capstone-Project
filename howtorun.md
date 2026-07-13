@@ -227,7 +227,14 @@ ros2 launch ublox_gps ublox_f9p_launch.py serial_port:=/dev/ttyUSB0 baudrate:=11
 ## `/f9r/*`, `/ublox_gps_node/*`
 ```
 ros2 launch ublox_gps ublox_f9r_launch.py serial_port:=/dev/ttyUSB1 baudrate:=115200 -->
+
+
+## 8. 시리얼 브릿지 사용
+
 ```
+ros2 run bridge_pkg serial_bridge
+```
+
 
 # ROS BAG 만들기
 ```

@@ -19,7 +19,7 @@ setup(
     license='TODO: License declaration',
     entry_points={
         'console_scripts': [
-            'vehicle_serial_bridge = bridge_pkg.vehicle_serial_bridge:main',
+            'serial_bridge = bridge_pkg.serial_bridge:main',
         ],
     },
 )

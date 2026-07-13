@@ -5,10 +5,14 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from nav_msgs.msg import Path
+from rclpy.clock import Clock
+from rclpy.clock import ClockType
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Float64
 from tf2_ros import TransformBroadcaster
+
+from odom_pkg.encoder_watchdog import EncoderWatchdog
 
 
 class EncoderOdometry(Node):
@@ -16,11 +20,13 @@ class EncoderOdometry(Node):
     def __init__(self, **kwargs):
         super().__init__('encoder_odometry', **kwargs)
 
-        self.declare_parameter('odom_publish_rate_hz', 30.0)
+        self.declare_parameter('odom_publish_rate_hz', 100.0)
         self.declare_parameter('path_publish_rate_hz', 5.0)
         self.declare_parameter('path_min_distance', 0.02)
         self.declare_parameter('path_max_length', 300)
         self.declare_parameter('max_dt_sec', 0.2)
+        self.declare_parameter('encoder_timeout_sec', 0.1)
+        self.declare_parameter('odom_topic', '/odom/encoder')
         self.declare_parameter('odom_frame_id', 'odom')
         self.declare_parameter('base_frame_id', 'base_link')
         self.declare_parameter('heading_rad', 0.0)
@@ -35,22 +41,30 @@ class EncoderOdometry(Node):
         self.path_min_distance = float(self.get_parameter('path_min_distance').value)
         self.path_max_length = int(self.get_parameter('path_max_length').value)
         self.max_dt_sec = float(self.get_parameter('max_dt_sec').value)
+        self.encoder_timeout_sec = float(
+            self.get_parameter('encoder_timeout_sec').value
+        )
+        self.odom_topic = self.get_parameter('odom_topic').value
         self.odom_frame_id = self.get_parameter('odom_frame_id').value
         self.base_frame_id = self.get_parameter('base_frame_id').value
         self.heading_rad = float(self.get_parameter('heading_rad').value)
         self.publish_tf_enabled = bool(self.get_parameter('publish_tf').value)
+        if self.odom_publish_period <= 0.0:
+            raise ValueError('odom_publish_rate_hz must be greater than 0.0')
 
         self.position = [0.0, 0.0, 0.0]
         self.velocity = [0.0, 0.0, 0.0]
         self.last_time = None
-        self.last_odom_publish_time = None
-        self.last_path_publish_time = None
         self.last_path_position = None
         self.current_speed = 0.0
+        self.steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
+        self.encoder_watchdog = EncoderWatchdog(self.encoder_timeout_sec)
 
-        self.odom_publisher = self.create_publisher(Odometry, '/odom/encoder', 10)
+        self.odom_publisher = self.create_publisher(Odometry, self.odom_topic, 10)
         self.path_publisher = self.create_publisher(Path, '/odom/encoder/path', 10)
-        self.tf_broadcaster = TransformBroadcaster(self) if self.publish_tf_enabled else None
+        self.tf_broadcaster = (
+            TransformBroadcaster(self) if self.publish_tf_enabled else None
+        )
 
         self.speed_subscription = self.create_subscription(Float64, 'encoder/speed', self.speed_callback, 10)
         self.distance_subscription = self.create_subscription(Float64, 'encoder/distance', self.distance_callback, 10)
@@ -61,41 +75,72 @@ class EncoderOdometry(Node):
             self.path_publish_period if self.path_publish_period > 0.0 else 0.2,
             self.publish_path,
         )
+        # ROS bag의 /clock이 멈추더라도 timeout을 판정할 수 있도록
+        # watchdog timer에는 steady clock을 사용한다.
+        self.odom_timer = self.create_timer(
+            self.odom_publish_period,
+            self.odom_timer_callback,
+            clock=self.steady_clock,
+        )
+        self.get_logger().info(
+            f'Encoder watchdog enabled: input=/encoder/speed, '
+            f'timeout={self.encoder_timeout_sec:.3f}s, output={self.odom_topic}'
+        )
 
     def speed_callback(self, msg):
         stamp = self.get_clock().now()
         stamp_time = stamp.nanoseconds * 1e-9
         speed = msg.data
-
-        if self.last_time is None:
-            self.last_time = stamp_time
-            self.current_speed = speed
-            return
-
-        dt = stamp_time - self.last_time
-        self.last_time = stamp_time
-        if dt <= 0.0 or dt > self.max_dt_sec:
-            self.log_throttled('dt', f'Ignoring encoder sample with invalid dt={dt:.4f}', 'warn')
-            self.current_speed = speed
-            return
+        steady_time = self.steady_clock.now().nanoseconds * 1e-9
+        recovered = self.encoder_watchdog.record_sample(steady_time)
+        if recovered:
+            self.get_logger().info('Encoder speed reception recovered.')
 
         self.current_speed = speed
         self.velocity[0] = speed
         self.velocity[1] = 0.0
         self.velocity[2] = 0.0
 
+        if self.last_time is None:
+            self.last_time = stamp_time
+            return
+
+        dt = stamp_time - self.last_time
+        self.last_time = stamp_time
+        if dt <= 0.0 or dt > self.max_dt_sec:
+            self.log_throttled('dt', f'Ignoring encoder sample with invalid dt={dt:.4f}', 'warn')
+            return
+
         self.position[0] += math.cos(self.heading_rad) * speed * dt
         self.position[1] += math.sin(self.heading_rad) * speed * dt
 
-        if self.should_publish(stamp_time, self.last_odom_publish_time, self.odom_publish_period):
-            q = self.yaw_to_quaternion(self.heading_rad)
-            self.publish_odometry(stamp, q)
-            if self.publish_tf_enabled:
-                self.publish_tf(stamp, q)
-            self.last_odom_publish_time = stamp_time
-
         q = self.yaw_to_quaternion(self.heading_rad)
         self.update_path(stamp, q)
+
+    def odom_timer_callback(self):
+        stamp = self.get_clock().now()
+        steady_time = self.steady_clock.now().nanoseconds * 1e-9
+        fresh, just_timed_out, elapsed_sec = self.encoder_watchdog.check(steady_time)
+
+        if fresh:
+            self.velocity[0] = self.current_speed
+        else:
+            self.current_speed = 0.0
+            self.velocity[0] = 0.0
+
+        self.velocity[1] = 0.0
+        self.velocity[2] = 0.0
+
+        if just_timed_out:
+            self.get_logger().warn(
+                f'Encoder speed timed out after {elapsed_sec:.3f}s; '
+                f'publishing zero velocity on {self.odom_topic}.'
+            )
+
+        q = self.yaw_to_quaternion(self.heading_rad)
+        self.publish_odometry(stamp, q)
+        if self.publish_tf_enabled:
+            self.publish_tf(stamp, q)
 
     def distance_callback(self, msg):
         # distance is available if needed for diagnostics or future use

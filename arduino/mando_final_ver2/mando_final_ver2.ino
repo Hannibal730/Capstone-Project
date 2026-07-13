@@ -369,7 +369,7 @@ struct PidState {
   double integral = 0.0;
 };
 
-double PID(PidState &st, double ref, double sense, unsigned long dt_us) {
+double PID(struct PidState &st, double ref, double sense, unsigned long dt_us) {
   double dt_s = dt_us * 1.0e-6;
   if (dt_s <= 0.0) dt_s = 1e-6;
 

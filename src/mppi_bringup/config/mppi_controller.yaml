@@ -1,249 +1,249 @@
-planner_server:
-  ros__parameters:
-    use_sim_time: false
-    expected_planner_frequency: 1.0
-    planner_plugins: ["GridBased"]
+planner_server: # RViz2의 /goal_pose를 받아 MPPI가 추종할 nav_msgs/Path를 생성하는 전역 planner 노드
+  ros__parameters: # planner_server에 전달되는 ROS 2 파라미터 묶음
+    use_sim_time: false # true면 /clock 시간을 사용하고, false면 PC의 system time을 사용함
+    expected_planner_frequency: 1.0 # planner가 어느 정도 주기로 경로를 만들 것으로 기대하는지 나타내는 값(Hz)
+    planner_plugins: ["GridBased"] # planner_server가 로드할 planner plugin ID 목록이며, mppi_path_client의 planner_id와 일치해야 함
 
-    GridBased:
-      plugin: "nav2_smac_planner/SmacPlannerHybrid"
-      tolerance: 0.5
-      downsample_costmap: false
-      downsampling_factor: 1
-      allow_unknown: true
-      max_iterations: 1000000
-      max_on_approach_iterations: 1000
-      max_planning_time: 5.0
-      motion_model_for_search: "DUBIN"
-      angle_quantization_bins: 72
-      analytic_expansion_ratio: 3.5
-      analytic_expansion_max_length: 15.0
-      minimum_turning_radius: 3.3
-      reverse_penalty: 2.1
-      change_penalty: 0.0
-      non_straight_penalty: 1.2
-      cost_penalty: 2.0
-      retrospective_penalty: 0.025
-      lookup_table_size: 20.0
-      cache_obstacle_heuristic: false
-      smooth_path: true
-      smoother:
-        max_iterations: 1000
-        w_smooth: 0.3
-        w_data: 0.2
-        tolerance: 1.0e-10
-        do_refinement: true
+    GridBased: # planner_plugins에 등록된 planner ID이며, 아래 설정이 이 planner instance에 적용됨
+      plugin: "nav2_smac_planner/SmacPlannerHybrid" # 차량형/Ackermann 경로 생성을 위한 Hybrid-A* 기반 Smac planner plugin
+      tolerance: 0.2 # 정확한 goal pose까지 경로를 못 찾을 때 goal 주변 몇 m까지 허용할지 결정
+      downsample_costmap: false # true면 planning용 costmap 해상도를 낮춰 속도를 높이지만 경로 정밀도는 떨어질 수 있음
+      downsampling_factor: 1 # downsample_costmap이 true일 때 costmap cell 크기를 몇 배로 키울지 결정
+      allow_unknown: true # true면 unknown 영역도 지나갈 수 있게 계획하고, false면 unknown을 장애물처럼 피함
+      max_iterations: 1000000 # 경로 탐색 전체 반복 상한으로, 도달 불가능한 goal에서 무한 탐색을 막음
+      max_on_approach_iterations: 1000 # goal tolerance 안에 들어온 뒤 더 좋은 최종 접근 경로를 찾는 추가 반복 횟수
+      max_planning_time: 5.0 # planning과 smoothing을 포함해 경로 생성에 사용할 수 있는 최대 시간(sec)
+      motion_model_for_search: "DUBIN" # 전진 주행 중심의 Dubins motion model을 사용하며, 후진 주차식 경로는 REEDS_SHEPP가 더 적합할 수 있음
+      angle_quantization_bins: 72 # yaw 방향을 몇 개 각도 bin으로 나눠 탐색할지 결정하며, 클수록 정밀하지만 계산량이 증가함
+      analytic_expansion_ratio: 3.5 # goal 근처에서 Dubins 곡선으로 직접 연결을 시도하는 빈도/비율
+      analytic_expansion_max_length: 15.0 # analytic expansion으로 한 번에 연결할 수 있는 최대 길이(m)
+      minimum_turning_radius: 1.65 # planner가 가정하는 차량 최소 회전반경이며, 너무 작으면 실제 차량이 못 도는 path가 나올 수 있음
+      reverse_penalty: 2.1 # 후진 motion에 부여하는 추가 비용이며, REEDS_SHEPP처럼 후진을 허용할 때 영향이 큼
+      change_penalty: 0.0 # 전진/후진 방향 전환에 부여하는 비용으로, 값이 크면 방향 전환이 줄어듦
+      non_straight_penalty: 1.2 # 직진이 아닌 곡선 motion에 추가 비용을 주어 불필요하게 구불거리는 경로를 줄임
+      cost_penalty: 2.0 # costmap에서 비용이 높은 영역을 얼마나 강하게 피할지 결정함
+      retrospective_penalty: 0.025 # 탐색 효율을 위해 초반보다 뒤쪽 maneuver를 약간 선호하게 하는 비용
+      lookup_table_size: 20.0 # Dubins/Reeds-Shepp 거리 계산을 캐시하는 lookup table 크기(m)
+      cache_obstacle_heuristic: false # 같은 goal로 반복 planning할 때 obstacle heuristic을 캐시해 속도를 높일지 여부
+      smooth_path: true # Hybrid-A*가 만든 계단형/각진 path를 smoother로 후처리할지 여부
+      smoother: # SmacPlannerHybrid 결과 path를 부드럽게 만드는 smoother 세부 설정
+        max_iterations: 1000 # smoothing 최적화를 최대 몇 번 반복할지 결정
+        w_smooth: 0.3 # path를 부드럽게 만들려는 힘의 가중치로, 크면 더 매끈하지만 원본에서 벗어날 수 있음
+        w_data: 0.2 # 원래 planner path를 유지하려는 가중치로, 크면 smoothing 변형이 줄어듦
+        tolerance: 1.0e-10 # smoothing 반복을 멈출 수렴 기준이며, 작을수록 더 엄격하게 수렴을 봄
+        do_refinement: true # smoothing 결과를 한 번 더 다듬는 refinement 과정을 수행할지 여부
 
-controller_server:
-  ros__parameters:
-    use_sim_time: false
+controller_server: # planner/CSV path를 FollowPath action으로 받아 MPPI 제어 명령(/cmd_vel)을 생성하는 노드
+  ros__parameters: # controller_server에 전달되는 ROS 2 파라미터 묶음
+    use_sim_time: false # true면 /clock 시간을 사용하고, false면 PC의 system time을 사용함
 
-    controller_frequency: 10.0
-    odom_topic: /odom/ekf_encoder_imu
-    odom_duration: 0.3
+    controller_frequency: 10.0 # MPPI controller loop 주기(Hz)이며, 10Hz면 0.1초마다 /cmd_vel을 갱신함
+    odom_topic: /odom/ekf_encoder_imu # MPPI가 현재 속도와 회전속도를 읽는 odometry topic
+    odom_duration: 0.3 # odom message가 이 시간(sec)보다 오래되면 오래된 데이터로 보고 사용을 제한함
 
-    transform_tolerance: 0.3
-    costmap_update_timeout: 0.30
-    failure_tolerance: 1.5
+    transform_tolerance: 0.3 # TF 조회 시 허용할 시간 오차(sec)로, TF delay가 조금 있어도 동작하게 함
+    costmap_update_timeout: 0.30 # 제어 계산 전 local costmap update를 기다릴 최대 시간(sec)
+    failure_tolerance: 1.5 # controller가 일시적으로 실패해도 navigation 실패로 처리하기 전까지 기다리는 시간(sec)
 
-    min_x_velocity_threshold: 0.001
-    min_theta_velocity_threshold: 0.001
+    min_x_velocity_threshold: 0.001 # 이 값보다 작은 x 속도는 노이즈로 보고 0에 가깝게 취급함
+    min_theta_velocity_threshold: 0.001 # 이 값보다 작은 yaw rate는 노이즈로 보고 0에 가깝게 취급함
 
-    progress_checker_plugins: ["progress_checker"]
-    goal_checker_plugins: ["goal_checker"]
-    controller_plugins: ["FollowPath"]
+    progress_checker_plugins: ["progress_checker"] # 로봇이 실제로 앞으로 진행 중인지 확인하는 plugin ID 목록
+    goal_checker_plugins: ["goal_checker"] # 목표 pose 도달 여부를 판정하는 plugin ID 목록
+    controller_plugins: ["FollowPath"] # controller_server가 로드할 controller plugin ID 목록
 
-    progress_checker:
-      plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+    progress_checker: # FollowPath 수행 중 stuck 상태인지 판단하는 progress checker 설정
+      plugin: "nav2_controller::SimpleProgressChecker" # 일정 시간 안에 일정 거리 이상 움직였는지 확인하는 기본 checker
+      required_movement_radius: 0.5 # 이 거리(m) 이상 움직여야 진행 중이라고 인정함
+      movement_time_allowance: 10.0 # required_movement_radius를 만족해야 하는 제한 시간(sec)
 
-    goal_checker:
-      plugin: "nav2_controller::SimpleGoalChecker"
-      stateful: true
-      xy_goal_tolerance: 0.5
-      yaw_goal_tolerance: 0.3
+    goal_checker: # path의 최종 goal에 도달했는지 판정하는 goal checker 설정
+      plugin: "nav2_controller::SimpleGoalChecker" # xy/yaw tolerance 기반의 기본 goal checker
+      stateful: true # goal 도달 판정 상태를 유지해 yaw 정렬 등 순차 조건을 안정적으로 처리함
+      xy_goal_tolerance: 0.2 # 목표 위치에 대해 허용할 xy 거리 오차(m)
+      yaw_goal_tolerance: 0.1 # 목표 방향에 대해 허용할 yaw 오차(rad)
 
-    FollowPath:
-      plugin: "nav2_mppi_controller::MPPIController"
+    FollowPath: # controller_plugins의 FollowPath ID에 연결되는 MPPI controller 설정
+      plugin: "nav2_mppi_controller::MPPIController" # FollowPath action 요청을 처리할 실제 MPPI controller plugin
 
-      time_steps: 40
-      model_dt: 0.1
-      batch_size: 500
-      iteration_count: 1
+      time_steps: 40 # 각 후보 trajectory를 미래 몇 step까지 예측할지 결정함
+      model_dt: 0.1 # trajectory 예측 step 사이 시간(sec)이며, time_steps * model_dt가 예측 horizon임
+      batch_size: 500 # 한 제어 주기마다 샘플링할 후보 trajectory 개수로, 클수록 좋지만 CPU 부하가 증가함
+      iteration_count: 1 # 한 제어 주기 안에서 MPPI 최적화를 몇 번 반복할지 결정함
 
-      open_loop: false
-      reset_period: 1.0
-      retry_attempt_limit: 1
+      open_loop: false # false면 매 주기 odom feedback으로 현재 상태를 보정하고, true면 이전 command sequence를 더 의존함
+      reset_period: 1.0 # 내부 control sequence/noise를 주기적으로 reset하는 시간(sec)
+      retry_attempt_limit: 1 # 유효한 control을 못 찾았을 때 재시도할 횟수 제한
 
-      vx_std: 0.3
-      wz_std: 0.3
+      vx_std: 0.3 # 후보 trajectory 생성 시 전진속도(vx)에 더하는 Gaussian noise 표준편차
+      wz_std: 0.3 # 후보 trajectory 생성 시 yaw rate(wz)에 더하는 Gaussian noise 표준편차
 
-      vx_max: 2.0
-      vx_min: -0.5
-      wz_max: 1.0
+      vx_max: 2.0 # MPPI가 생성할 수 있는 최대 전진 속도(m/s)
+      vx_min: -0.5 # MPPI가 생성할 수 있는 최소 x 속도(m/s)이며, 음수면 후진 후보도 포함됨
+      wz_max: 1.0 # MPPI가 생성할 수 있는 최대 yaw rate(rad/s)
 
-      temperature: 0.3
-      gamma: 0.015
+      temperature: 0.3 # 비용이 낮은 후보를 얼마나 강하게 선택할지 정하며, 낮을수록 최저비용 후보 쪽으로 집중됨
+      gamma: 0.015 # control 변화/effort 비용에 영향을 주는 MPPI 계수로, command가 튀는 정도와 관련됨
 
-      visualize: true
-      regenerate_noises: true
+      visualize: true # true면 /trajectories와 /transformed_global_plan 등을 발행해 RViz에서 디버깅 가능함
+      regenerate_noises: true # true면 매 iteration마다 sampling noise를 새로 만들어 후보 다양성을 유지함
 
-      motion_model: "Ackermann"
-      ackermann:
-        plugin: "mppi::AckermannMotionModel"
-        min_turning_r: 3.3
+      motion_model: "Ackermann" # MPPI rollout이 사용할 운동 모델이며, 차량형 조향 모델을 의미함
+      ackermann: # Ackermann motion model에 필요한 세부 파라미터
+        plugin: "mppi::AckermannMotionModel" # MPPI 내부에서 사용할 Ackermann motion model plugin
+        min_turning_r: 1.65 # MPPI 후보 trajectory가 만족해야 하는 최소 회전반경(m)이며 planner의 minimum_turning_radius와 맞춤
 
-      TrajectoryValidator:
-        plugin: "mppi::DefaultOptimalTrajectoryValidator"
-        collision_lookahead_time: 2.0
-        consider_footprint: true # 중요
+      TrajectoryValidator: # MPPI가 선택한 최적 trajectory가 충돌/제약 조건을 만족하는지 최종 검사하는 설정
+        plugin: "mppi::DefaultOptimalTrajectoryValidator" # 기본 optimal trajectory validator plugin
+        collision_lookahead_time: 2.0 # 선택된 trajectory에서 미래 몇 초까지 충돌을 검사할지 결정함
+        consider_footprint: true # true면 base_link 점이 아니라 차량 footprint polygon 전체로 충돌을 검사함
 
-      TrajectoryVisualizer:
-        trajectory_step: 5
-        time_step: 3
+      TrajectoryVisualizer: # MPPI 후보 trajectory를 RViz MarkerArray로 표시하는 방식을 정함
+        trajectory_step: 5 # 모든 후보를 그리지 않고 몇 번째 trajectory마다 하나씩 표시할지 결정함
+        time_step: 3 # trajectory 내부의 모든 점을 그리지 않고 몇 step마다 하나씩 표시할지 결정함
 
-      critics:
-        [
-          "ConstraintCritic",
-          "CostCritic",
-          "GoalCritic",
-          "GoalAngleCritic",
-          "PathAlignCritic",
-          "PathFollowCritic",
-          "PathAngleCritic",
-          "PreferForwardCritic",
-        ]
+      critics: # 후보 trajectory에 비용을 매기는 critic plugin ID 목록이며, 아래 critic 설정 이름과 일치해야 함
+        - "ConstraintCritic" # 속도/가속/운동학적 제약을 넘는 후보를 억제함
+        - "CostCritic" # costmap 비용과 충돌 위험이 큰 후보를 강하게 벌점 처리함
+        - "GoalCritic" # 최종 goal 위치에 가까워지는 후보를 선호하게 함
+        - "GoalAngleCritic" # 최종 goal 방향(yaw)에 잘 맞는 후보를 선호하게 함
+        - "PathAlignCritic" # 후보 trajectory가 global path 방향과 나란히 가도록 유도함
+        - "PathFollowCritic" # 후보 trajectory가 path 위의 앞쪽 지점을 따라가도록 유도함
+        - "PathAngleCritic" # 차량 heading이 path heading과 크게 어긋나지 않도록 유도함
+        - "PreferForwardCritic" # 후진보다 전진 주행 후보를 더 선호하게 함
 
-      ConstraintCritic:
-        enabled: true
-        cost_weight: 4.0
-        cost_power: 1
+      ConstraintCritic: # MPPI 후보가 속도/조향 제약을 벗어나지 않도록 하는 critic 설정
+        enabled: true # true면 이 critic을 비용 계산에 포함하고, false면 완전히 끔
+        cost_weight: 4.0 # 이 critic 비용의 영향력이며, 클수록 제약 위반 후보가 더 강하게 배제됨
+        cost_power: 1 # 비용을 몇 제곱으로 키울지 결정하며, 1이면 선형 비용임
 
-      GoalCritic:
-        enabled: true
-        cost_weight: 5.0
-        cost_power: 1
-        threshold_to_consider: 2.0
+      GoalCritic: # goal 위치에 가까워지는 trajectory를 선호하도록 하는 critic 설정
+        enabled: true # true면 goal 위치 비용을 사용함
+        cost_weight: 5.0 # goal 위치로 끌어당기는 비용의 영향력
+        cost_power: 1 # goal 위치 비용의 지수 형태이며, 1이면 선형 비용임
+        threshold_to_consider: 2.0 # goal까지 이 거리(m) 안에 들어왔을 때 주로 이 critic을 고려함
 
-      GoalAngleCritic:
-        enabled: true
-        cost_weight: 3.0
-        cost_power: 1
-        threshold_to_consider: 1.0
-        symmetric_yaw_tolerance: false
+      GoalAngleCritic: # 최종 goal 방향과 차량 방향을 맞추도록 하는 critic 설정
+        enabled: true # true면 goal yaw 정렬 비용을 사용함
+        cost_weight: 3.0 # goal yaw와의 차이를 줄이는 비용의 영향력
+        cost_power: 1 # yaw 비용의 지수 형태이며, 1이면 선형 비용임
+        threshold_to_consider: 1.0 # goal까지 이 거리(m) 안에서 yaw 정렬을 더 중요하게 봄
+        symmetric_yaw_tolerance: false # true면 180도 대칭 방향도 허용하는 용도이며, 일반 전진 주행에서는 false가 자연스러움
 
-      PathAlignCritic:
-        enabled: true
-        cost_weight: 14.0
-        cost_power: 1
-        max_path_occupancy_ratio: 0.05
-        trajectory_point_step: 4
-        threshold_to_consider: 0.5
-        offset_from_furthest: 20
-        use_path_orientations: false
+      PathAlignCritic: # 후보 trajectory가 path의 진행 방향과 정렬되도록 만드는 critic 설정
+        enabled: true # true면 path 정렬 비용을 사용함
+        cost_weight: 14.0 # path 정렬을 얼마나 강하게 요구할지 결정하며, 너무 크면 조향이 예민해질 수 있음
+        cost_power: 1 # path 정렬 비용의 지수 형태이며, 1이면 선형 비용임
+        max_path_occupancy_ratio: 0.05 # path 주변이 costmap에서 많이 막혀 있으면 이 critic 적용을 줄이는 기준
+        trajectory_point_step: 4 # trajectory의 모든 점이 아니라 몇 점마다 평가할지 결정해 계산량을 조절함
+        threshold_to_consider: 0.5 # goal과 가까운 구간에서는 이 거리(m) 기준으로 path align 영향이 줄어듦
+        offset_from_furthest: 20 # path에서 현재 도달한 가장 먼 점보다 몇 index 앞을 기준으로 정렬할지 결정함
+        use_path_orientations: false # true면 path pose의 orientation까지 정렬에 사용하고, false면 path 형상 중심으로 평가함
 
-      PathFollowCritic:
-        enabled: true
-        cost_weight: 5.0
-        cost_power: 1
-        offset_from_furthest: 5
+      PathFollowCritic: # trajectory가 path 위의 앞쪽 목표점을 따라 전진하도록 만드는 critic 설정
+        enabled: true # true면 path follow 비용을 사용함
+        cost_weight: 5.0 # path를 따라가려는 영향력이며, 너무 낮으면 path에서 멀어질 수 있음
+        cost_power: 1 # path follow 비용의 지수 형태이며, 1이면 선형 비용임
+        offset_from_furthest: 5 # 현재 도달한 path 위치보다 몇 index 앞을 추종 목표로 볼지 결정함
 
-      PathAngleCritic:
-        enabled: true
-        cost_weight: 2.0
-        cost_power: 1
-        offset_from_furthest: 4
-        threshold_to_consider: 0.5
-        max_angle_to_furthest: 1.2
-        forward_preference: true
+      PathAngleCritic: # 차량 heading이 path 방향과 맞도록 유도하는 critic 설정
+        enabled: true # true면 path heading 비용을 사용함
+        cost_weight: 2.0 # path 방향과 heading 차이를 줄이는 영향력
+        cost_power: 1 # path heading 비용의 지수 형태이며, 1이면 선형 비용임
+        offset_from_furthest: 4 # heading 비교에 사용할 path 앞쪽 index offset
+        threshold_to_consider: 0.5 # goal 근처 이 거리(m) 안에서는 path angle 영향이 줄어듦
+        max_angle_to_furthest: 1.2 # path 앞쪽 점과 heading 차이가 이 값(rad)보다 크면 비용을 강하게 반영함
+        forward_preference: true # true면 path 방향을 따라 전진하는 heading을 더 선호함
 
-      PreferForwardCritic:
-        enabled: true
-        cost_weight: 5.0
-        cost_power: 1
-        threshold_to_consider: 0.5
+      PreferForwardCritic: # 후진보다 전진 주행을 선호하게 하는 critic 설정
+        enabled: true # true면 후진 후보에 추가 비용을 부여함
+        cost_weight: 5.0 # 후진 억제 강도이며, 클수록 후진 command가 덜 선택됨
+        cost_power: 1 # 후진 선호 비용의 지수 형태이며, 1이면 선형 비용임
+        threshold_to_consider: 0.5 # goal 근처 이 거리(m) 안에서는 전진 선호 비용 적용이 완화될 수 있음
 
-      CostCritic:
-        enabled: true
-        cost_weight: 3.81
-        cost_power: 1
-        consider_footprint: true #중요
-        collision_cost: 1000000.0
-        critical_cost: 300.0
-        near_goal_distance: 1.0
+      CostCritic: # local costmap을 이용해 장애물/충돌 위험이 큰 trajectory에 비용을 주는 critic 설정
+        enabled: true # true면 costmap 기반 비용을 사용함
+        cost_weight: 3.81 # 장애물/고비용 영역을 피하려는 영향력
+        cost_power: 1 # costmap 비용의 지수 형태이며, 1이면 선형 비용임
+        consider_footprint: true # true면 차량 중심점이 아니라 footprint 전체의 cost를 평가함
+        collision_cost: 1000000.0 # footprint가 충돌한다고 판단되는 후보에 부여하는 매우 큰 비용
+        critical_cost: 300.0 # 위험한 cost 영역으로 판단하는 기준 비용값
+        near_goal_distance: 1.0 # goal 근처 이 거리(m) 안에서는 cost critic 영향이 일부 완화될 수 있음
 
-local_costmap:
-  local_costmap:
-    ros__parameters:
-      use_sim_time: false
+# local_costmap: MPPI가 현재 차량 주변의 후보 trajectory 충돌/비용을 평가할 때 사용하는 가까운 범위의 costmap
+local_costmap: # MPPI controller가 매 제어 주기마다 충돌/비용 평가에 직접 사용하는 로컬 costmap
+  local_costmap: # Nav2 costmap node가 사용하는 local_costmap namespace
+    ros__parameters: # local_costmap에 전달되는 ROS 2 파라미터 묶음
+      use_sim_time: false # true면 /clock 시간을 사용하고, false면 PC의 system time을 사용함
 
-      update_frequency: 10.0
-      publish_frequency: 10.0
+      update_frequency: 10.0 # costmap 내부 데이터를 갱신하는 주기(Hz)
+      publish_frequency: 10.0 # RViz와 다른 노드로 costmap topic을 발행하는 주기(Hz)
 
-      global_frame: odom
-      robot_base_frame: base_link
-      transform_tolerance: 0.3
+      global_frame: odom # costmap 좌표 기준 frame이며, 현재 로컬 navigation은 odom frame 기준으로 구성됨
+      robot_base_frame: base_link # 차량 중심/기준 frame이며, footprint와 rolling window가 이 frame을 따라감
+      transform_tolerance: 0.3 # odom->base_link TF 조회 시 허용하는 시간 여유(sec)
 
-      rolling_window: true
-      width: 20
-      height: 20
-      resolution: 0.1
+      rolling_window: true # true면 고정 지도 전체가 아니라 차량 주변 window가 계속 따라다님
+      width: 20 # local costmap의 x 방향 전체 크기(m)
+      height: 20 # local costmap의 y 방향 전체 크기(m)
+      resolution: 0.1 # costmap 한 cell의 실제 크기(m/cell)이며, 작을수록 정밀하지만 무거움
 
-      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.4], [-0.35, 0.4]]"
-      plugins: ["inflation_layer"]
+      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.5], [-0.35, 0.5]]" # base_link 기준 차량 외곽 polygon이며 충돌 검사 크기를 결정함
+      plugins: ["inflation_layer"] # local costmap에 로드할 layer 목록이며, 현재는 obstacle layer 없이 inflation만 사용함
 
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        enabled: true
-        inflation_radius: 0.8
-        cost_scaling_factor: 3.0
+      inflation_layer: # 장애물 주변에 안전 여유 cost를 퍼뜨리는 costmap layer 설정
+        plugin: "nav2_costmap_2d::InflationLayer" # 장애물 주변 cost 확장을 담당하는 Nav2 기본 layer plugin
+        enabled: true # true면 이 layer를 costmap 계산에 포함함
+        inflation_radius: 0.8 # 장애물 주변 몇 m까지 cost를 확장할지 결정함
+        cost_scaling_factor: 3.0 # 장애물에서 멀어질수록 cost가 감소하는 기울기이며, 클수록 급격히 감소함
 
-      always_send_full_costmap: true
+      always_send_full_costmap: true # true면 부분 update 대신 전체 costmap을 발행해 RViz 디버깅이 단순해짐
 
-global_costmap:
-  global_costmap:
-    ros__parameters:
-      use_sim_time: false
+# global_costmap: planner_server가 현재 위치에서 goal까지 전체 path를 만들 때 사용하는 넓은 범위의 costmap
+global_costmap: # planner_server가 global path를 만들 때 참고하는 planning용 costmap
+  global_costmap: # Nav2 costmap node가 사용하는 global_costmap namespace
+    ros__parameters: # global_costmap에 전달되는 ROS 2 파라미터 묶음
+      use_sim_time: false # true면 /clock 시간을 사용하고, false면 PC의 system time을 사용함
 
-      update_frequency: 2.0
-      publish_frequency: 2.0
+      update_frequency: 2.0 # global costmap 내부 데이터를 갱신하는 주기(Hz)
+      publish_frequency: 2.0 # RViz와 다른 노드로 global costmap topic을 발행하는 주기(Hz)
 
-      global_frame: odom
-      robot_base_frame: base_link
-      transform_tolerance: 0.3
+      global_frame: odom # planning costmap 좌표 기준 frame이며, 현재는 map 없이 odom frame에서 planning함
+      robot_base_frame: base_link # 차량 기준 frame이며, rolling window 중심과 footprint 투영 기준이 됨
+      transform_tolerance: 0.3 # odom->base_link TF 조회 시 허용하는 시간 여유(sec)
 
-      rolling_window: true
-      width: 60
-      height: 60
-      resolution: 0.1
-      track_unknown_space: false
+      rolling_window: true # true면 차량 주변 60m x 60m 영역만 planning costmap으로 유지함
+      width: 60 # global costmap의 x 방향 전체 크기(m)
+      height: 60 # global costmap의 y 방향 전체 크기(m)
+      resolution: 0.1 # costmap 한 cell의 실제 크기(m/cell)이며, 작을수록 planner가 더 정밀하지만 느려짐
+      track_unknown_space: false # false면 unknown cell을 별도로 추적하지 않아 초기 odom frame 테스트가 단순해짐
 
-      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.4], [-0.35, 0.4]]"
-      plugins: ["inflation_layer"]
+      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.4], [-0.35, 0.4]]" # planner collision checking에 쓰이는 base_link 기준 차량 외곽 polygon
+      plugins: ["inflation_layer"] # global costmap에 로드할 layer 목록이며, 현재는 obstacle/static layer 없이 inflation만 사용함
 
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        enabled: true
-        inflation_radius: 0.8
-        cost_scaling_factor: 3.0
+      inflation_layer: # planning 단계에서 장애물 주변 여유거리를 cost로 표현하는 layer 설정
+        plugin: "nav2_costmap_2d::InflationLayer" # 장애물 주변 cost 확장을 담당하는 Nav2 기본 layer plugin
+        enabled: true # true면 이 layer를 global costmap 계산에 포함함
+        inflation_radius: 0.8 # 장애물 주변 몇 m까지 cost를 확장할지 결정함
+        cost_scaling_factor: 3.0 # 장애물에서 멀어질수록 cost가 감소하는 기울기이며, 클수록 급격히 감소함
 
-      always_send_full_costmap: true
+      always_send_full_costmap: true # true면 전체 global costmap을 발행해 RViz 확인이 쉬워짐
 
-mppi_path_client:
-  ros__parameters:
-    use_sim_time: false
-    action_name: follow_path
-    planner_action_name: compute_path_to_pose
-    controller_id: FollowPath
-    goal_checker_id: goal_checker
-    planner_id: GridBased
+mppi_path_client: # RViz goal, CSV path, planner 결과 path를 Nav2 action으로 연결하는 보조 노드
+  ros__parameters: # mppi_path_client에 전달되는 ROS 2 파라미터 묶음
+    use_sim_time: false # true면 /clock 시간을 사용하고, false면 PC의 system time을 사용함
+    action_name: follow_path # controller_server가 제공하는 FollowPath action 이름
+    planner_action_name: compute_path_to_pose # planner_server가 제공하는 ComputePathToPose action 이름
+    controller_id: FollowPath # FollowPath goal에 넣을 controller plugin ID이며 controller_server의 FollowPath 설정과 일치해야 함
+    goal_checker_id: goal_checker # FollowPath goal에 넣을 goal checker ID이며 controller_server의 goal_checker 설정과 일치해야 함
+    planner_id: GridBased # ComputePathToPose goal에 넣을 planner plugin ID이며 planner_server의 GridBased 설정과 일치해야 함
 
-    path_frame: odom
-    goal_topic: /goal_pose
-    csv_path_topic: /mppi/csv_path
-    active_path_topic: /mppi/active_path
-    status_topic: /mppi/status
+    path_frame: odom # RViz goal과 CSV/path topic이 사용해야 하는 frame이며 현재 costmap/global frame과 맞춤
+    goal_topic: /goal_pose # RViz2의 2D Goal Pose tool이 발행하는 목표 pose topic
+    csv_path_topic: /mppi/csv_path # 외부 노드가 이미 만든 nav_msgs/Path를 넣는 topic
+    active_path_topic: /mppi/active_path # 실제 FollowPath로 보낸 path를 RViz에서 확인하기 위해 다시 발행하는 topic
+    status_topic: /mppi/status # mppi_path_client가 IDLE/PLANNING/FOLLOWING 상태를 알려주는 topic
 
-    csv_file_path: ""
-    csv_frame: odom
-    auto_send_csv: false
+    csv_file_path: "" # 시작 시 자동으로 읽을 CSV path 파일 경로이며, 빈 문자열이면 파일을 읽지 않음
+    csv_frame: odom # CSV에서 읽은 path에 부여할 frame_id
+    auto_send_csv: false # true면 노드 시작 직후 csv_file_path의 path를 바로 FollowPath로 전송함

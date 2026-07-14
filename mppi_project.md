@@ -335,7 +335,7 @@ controller_server:
       motion_model: "Ackermann"
       ackermann:
         plugin: "mppi::AckermannMotionModel"
-        min_turning_r: 3.3
+        min_turning_r: 1.65
 
       TrajectoryValidator:
         plugin: "mppi::DefaultOptimalTrajectoryValidator"
@@ -469,7 +469,7 @@ local_costmap:
 | `angle_quantization_bins` | `72` | heading 각도를 몇 개 bin으로 나눠 탐색할지 결정. 클수록 방향 표현은 세밀하지만 계산량 증가 |
 | `analytic_expansion_ratio` | `3.5` | goal 근처에서 곡선 shortcut을 시도하는 빈도/비율 |
 | `analytic_expansion_max_length` | `15.0` | analytic expansion으로 허용할 최대 연결 길이. 최소 회전반경보다 충분히 크게 둬야 함 |
-| `minimum_turning_radius` | `3.3` | planner가 가정하는 최소 회전반경. MPPI의 `ackermann.min_turning_r`와 맞추는 핵심 값 |
+| `minimum_turning_radius` | `1.65` | planner가 가정하는 최소 회전반경. MPPI의 `ackermann.min_turning_r`와 맞추는 핵심 값 |
 | `reverse_penalty` | `2.1` | 후진 motion 비용. `DUBIN`에서는 영향이 제한적이고, `REEDS_SHEPP`에서 중요 |
 | `change_penalty` | `0.0` | 전진/후진 방향 전환 비용 |
 | `non_straight_penalty` | `1.2` | 곡선 motion에 추가 비용을 줘 불필요한 굽은 경로를 줄임 |
@@ -561,9 +561,9 @@ planned nav_msgs/Path
 | :--- | :--- | :--- |
 | `motion_model` | `Ackermann` | 차량형 운동 모델 사용 |
 | `ackermann.plugin` | `mppi::AckermannMotionModel` | MPPI 내부 Ackermann motion model plugin |
-| `ackermann.min_turning_r` | `3.3` | MPPI rollout이 따르는 최소 회전반경. planner의 `minimum_turning_radius`와 맞춰야 함 |
+| `ackermann.min_turning_r` | `1.65` | MPPI rollout이 따르는 최소 회전반경. planner의 `minimum_turning_radius`와 맞춰야 함 |
 
-planner와 controller의 회전반경이 다르면 planner는 돌 수 있다고 판단한 경로를 MPPI가 추종하지 못하거나, 반대로 MPPI는 가능한데 planner가 지나치게 넓게 도는 path를 만들 수 있다. 현재는 둘 다 `3.3m`로 맞춘다.
+planner와 controller의 회전반경이 다르면 planner는 돌 수 있다고 판단한 경로를 MPPI가 추종하지 못하거나, 반대로 MPPI는 가능한데 planner가 지나치게 넓게 도는 path를 만들 수 있다. 실제 차량의 최소 회전반경이 `1.65m`이므로 현재는 둘 다 `1.65m`로 맞춘다.
 
 #### trajectory validator / visualizer
 

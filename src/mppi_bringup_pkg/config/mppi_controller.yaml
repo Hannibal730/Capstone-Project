@@ -60,7 +60,7 @@ controller_server: # planner/CSV path를 FollowPath action으로 받아 MPPI 제
     goal_checker: # path의 최종 goal에 도달했는지 판정하는 goal checker 설정
       plugin: "nav2_controller::SimpleGoalChecker" # xy/yaw tolerance 기반의 기본 goal checker
       stateful: true # goal 도달 판정 상태를 유지해 yaw 정렬 등 순차 조건을 안정적으로 처리함
-      xy_goal_tolerance: 0.2 # 목표 위치에 대해 허용할 xy 거리 오차(m)
+      xy_goal_tolerance: 0.1 # 목표 위치에 대해 허용할 xy 거리 오차(m)
       yaw_goal_tolerance: 0.1 # 목표 방향에 대해 허용할 yaw 오차(rad)
 
     FollowPath: # controller_plugins의 FollowPath ID에 연결되는 MPPI controller 설정
@@ -88,10 +88,10 @@ controller_server: # planner/CSV path를 FollowPath action으로 받아 MPPI 제
       visualize: true # true면 /trajectories와 /transformed_global_plan 등을 발행해 RViz에서 디버깅 가능함
       regenerate_noises: true # true면 매 iteration마다 sampling noise를 새로 만들어 후보 다양성을 유지함
 
-      motion_model: "Ackermann" # MPPI rollout이 사용할 운동 모델이며, 차량형 조향 모델을 의미함
+      motion_model: "Ackermann" # MPPI rollout이 사용할 운동 모델이며, 실제 조향 링크 구조가 아니라 차량형 bicycle-equivalent 운동학을 의미함
       ackermann: # Ackermann motion model에 필요한 세부 파라미터
-        plugin: "mppi::AckermannMotionModel" # MPPI 내부에서 사용할 Ackermann motion model plugin
-        min_turning_r: 1.65 # MPPI 후보 trajectory가 만족해야 하는 최소 회전반경(m)이며 planner의 minimum_turning_radius와 맞춤
+        plugin: "mppi::AckermannMotionModel" # MPPI 내부에서 사용할 차량형 단일-track/bicycle motion model plugin
+        min_turning_r: 1.65 # MPPI 후보 trajectory가 만족해야 하는 최소 회전반경(m)이며 wheelbase 0.724m, 최대 조향각 24deg 기준 약 1.63m와 일치
 
       TrajectoryValidator: # MPPI가 선택한 최적 trajectory가 충돌/제약 조건을 만족하는지 최종 검사하는 설정
         plugin: "mppi::DefaultOptimalTrajectoryValidator" # 기본 optimal trajectory validator plugin
@@ -188,7 +188,7 @@ local_costmap: # MPPI controller가 매 제어 주기마다 충돌/비용 평가
       height: 20 # local costmap의 y 방향 전체 크기(m)
       resolution: 0.1 # costmap 한 cell의 실제 크기(m/cell)이며, 작을수록 정밀하지만 무거움
 
-      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.5], [-0.35, 0.5]]" # base_link 기준 차량 외곽 polygon이며 충돌 검사 크기를 결정함
+      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.5], [-0.35, 0.5]]" # 후륜축 중심 base_link 기준 차량 외곽 polygon이며 충돌 검사 크기를 결정함
       plugins: ["inflation_layer"] # local costmap에 로드할 layer 목록이며, 현재는 obstacle layer 없이 inflation만 사용함
 
       inflation_layer: # 장애물 주변에 안전 여유 cost를 퍼뜨리는 costmap layer 설정
@@ -218,7 +218,7 @@ global_costmap: # planner_server가 global path를 만들 때 참고하는 plann
       resolution: 0.1 # costmap 한 cell의 실제 크기(m/cell)이며, 작을수록 planner가 더 정밀하지만 느려짐
       track_unknown_space: false # false면 unknown cell을 별도로 추적하지 않아 초기 odom frame 테스트가 단순해짐
 
-      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.4], [-0.35, 0.4]]" # planner collision checking에 쓰이는 base_link 기준 차량 외곽 polygon
+      footprint: "[[1.15, 0.5], [1.15, -0.5], [-0.35, -0.5], [-0.35, 0.5]]" # planner collision checking에 쓰이는 후륜축 중심 base_link 기준 차량 외곽 polygon
       plugins: ["inflation_layer"] # global costmap에 로드할 layer 목록이며, 현재는 obstacle/static layer 없이 inflation만 사용함
 
       inflation_layer: # planning 단계에서 장애물 주변 여유거리를 cost로 표현하는 layer 설정

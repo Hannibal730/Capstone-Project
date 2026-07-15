@@ -7,7 +7,7 @@
 # 하나의 시리얼 포트를 단독 소유하고 다음을 모두 담당한다(양방향):
 #
 #   [읽기]  아두이노 → 호스트
-#     - "ENC,elapsedMs,count,dCount,dtMs" 라인을 파싱해
+#     - "ENC,elapsedMs,count,dCount,dtMs" 또는 "elapsedMs,ENC,count,POT,pot" 라인을 파싱해
 #       encoder/distance(Float64), encoder/speed(Float64) 로 발행
 #     - 그 외 디버그 문자열(MODE:..., ENCODER_START 등)은 ROS 로그로 표시
 #
@@ -58,7 +58,7 @@ class SerialBridge(Node):
         self.declare_parameter('v_max', 4.44)              # ★ 풀스로틀 대략 최고속[m/s] datasheet 상 16km/h, 4.44m/s
         self.declare_parameter('max_steer_deg', 24.0)     # 아두이노 MAX_STEER_TIRE_DEG 와 일치
         self.declare_parameter('min_speed', 0.20)         # v≈0 특이점 가드[m/s]
-        self.declare_parameter('steer_sign', 1.0)         # 좌/우 반대면 -1.0
+        self.declare_parameter('steer_sign', -1.0)         # 좌/우 반대면 -1.0
         self.declare_parameter('tx_rate_hz', 30.0)        # SA/TH 재전송 주기
         self.declare_parameter('cmd_timeout', 0.5)        # cmd_vel 끊김 정지 임계[s]
 
@@ -90,6 +90,7 @@ class SerialBridge(Node):
 
         # 엔코더 파생값 계산용
         self.last_elapsed_ms = None
+        self.last_encoder_count = None
 
         # 마지막 제어 명령(재전송/타임아웃용)
         self.last_auto_steer_deg = 0.0
@@ -171,7 +172,7 @@ class SerialBridge(Node):
                 time.sleep(0.2)
 
     def _handle_line(self, raw: str):
-        if raw.startswith('ENC,'):
+        if raw.startswith('ENC,') or ',ENC,' in raw:
             self._process_encoder(raw)
         else:
             # 아두이노 디버그/상태 문자열(MODE:..., ENCODER_START, RESET, MARK,... 등)
@@ -179,14 +180,27 @@ class SerialBridge(Node):
 
     def _process_encoder(self, raw: str):
         parts = raw.split(',')
-        # 형식: ENC,elapsedMs,count,dCount,dtMs
-        if len(parts) < 4:
-            return
         try:
-            elapsed_ms = float(parts[1])
-            total_count = int(float(parts[2]))
-            delta_count = int(float(parts[3]))
-            sample_dt = float(parts[4]) / 1000.0 if len(parts) >= 5 else None
+            if parts[0] == 'ENC':
+                # 형식: ENC,elapsedMs,count,dCount,dtMs
+                if len(parts) < 4:
+                    return
+                elapsed_ms = float(parts[1])
+                total_count = int(float(parts[2]))
+                delta_count = int(float(parts[3]))
+                sample_dt = float(parts[4]) / 1000.0 if len(parts) >= 5 else None
+            elif len(parts) >= 3 and parts[1] == 'ENC':
+                # 형식: elapsedMs,ENC,count,POT,pot
+                elapsed_ms = float(parts[0])
+                total_count = int(float(parts[2]))
+                delta_count = (
+                    0
+                    if self.last_encoder_count is None
+                    else total_count - self.last_encoder_count
+                )
+                sample_dt = None
+            else:
+                return
         except ValueError:
             self.get_logger().warn(f"Invalid encoder line: {raw}")
             return
@@ -202,6 +216,7 @@ class SerialBridge(Node):
         self._pub_f64(self.speed_pub, speed_m_s)
 
         self.last_elapsed_ms = elapsed_ms
+        self.last_encoder_count = total_count
 
     # ============================================================
     # 쓰기: 호스트 → 아두이노 (/cmd_vel → SA/TH)

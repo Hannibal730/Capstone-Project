@@ -11,7 +11,7 @@ serial_bridge:
     v_max: 4.44
     max_steer_deg: 24.0
     min_speed: 0.20
-    steer_sign: 1.0
+    steer_sign: -1.0
     tx_rate_hz: 30.0
     cmd_timeout: 0.5
 

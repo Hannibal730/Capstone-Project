@@ -4,9 +4,9 @@
 
 // [상수/변수 선언부]
 #define SERIAL_BAUD 115200
-#define ENABLE_VERBOSE_DEBUG 0
+#define ENABLE_VERBOSE_DEBUG 1
 #define ENCODER_STREAM_INTERVAL_MS 10
-#define ENCODER_STREAM_MIN_TX_SPACE 32
+#define ENCODER_STREAM_MIN_TX_SPACE 48
 #define LOOP_DELAY_MS 2
 #define STEERING_PULSE_PIN 2
 #define ACCEL_PULSE_PIN 3
@@ -19,7 +19,7 @@
 #define MANUAL_MODE 1400
 #define AUTO_MODE 1700
 
-#define POT_MAX 1021
+#define POT_MAX 977
 #define POT_MIN 0
 #define MAX_STEER_TIRE_DEG 24
 
@@ -53,7 +53,6 @@ volatile byte lastAB = 0;   // 쿼드러처 엔코더 이전 A/B 상태
 volatile unsigned long encoderAEdgeCount = 0;
 volatile unsigned long encoderBEdgeCount = 0;
 volatile unsigned long encoderInvalidTransitionCount = 0;
-long encoderCsvPrevCount = 0;
 long driveLogPrevEncoder = 0;
 unsigned long driveLogPrevAEdges = 0;
 unsigned long driveLogPrevBEdges = 0;
@@ -119,7 +118,6 @@ void resetEncoderCount() {
     encoderInvalidTransitionCount = 0;
   }
 
-  encoderCsvPrevCount = 0;
   driveLogPrevEncoder = 0;
   driveLogPrevAEdges = 0;
   driveLogPrevBEdges = 0;
@@ -462,24 +460,19 @@ void printEncoderCsv(long count) {
   if (now - encoderCsvPrevMs >= ENCODER_STREAM_INTERVAL_MS) {
     if (Serial.availableForWrite() < ENCODER_STREAM_MIN_TX_SPACE) return;
 
-    long dCount = count - encoderCsvPrevCount;
-    unsigned long dtMs = now - encoderCsvPrevMs;
     unsigned long elapsedMs = now - encoderTimeZeroMs;
-    encoderCsvPrevCount = count;
+    int potVal = analogRead(POTPin);
     // 고정 간격으로 기준 시각을 전진시켜 장기 평균을 정확히 100Hz로 유지 (드리프트 방지).
     // 과거처럼 = now 로 리셋하면 매 주기 초과분이 누적 손실되어 ~90Hz로 떨어짐.
     encoderCsvPrevMs += ENCODER_STREAM_INTERVAL_MS;
     // 루프가 크게 밀려 여러 주기를 놓친 경우에만 현재 시각으로 재동기화.
     if (now - encoderCsvPrevMs >= ENCODER_STREAM_INTERVAL_MS) encoderCsvPrevMs = now;
 
-    Serial.print("ENC,");
     Serial.print(elapsedMs);
-    Serial.print(",");
+    Serial.print(",ENC,");
     Serial.print(count);
-    Serial.print(",");
-    Serial.print(dCount);
-    Serial.print(",");
-    Serial.println(dtMs);
+    Serial.print(",POT,");
+    Serial.println(potVal);
   }
 }
 
@@ -571,8 +564,8 @@ void loop() {
   }
 
   int Mode_val = BREAK_MODE;
-  if (Manual_us_local > 1600) Mode_val = MANUAL_MODE;
-  else if (Auto_us_local > 1600) Mode_val = AUTO_MODE;
+  if (Auto_us_local > 1600) Mode_val = AUTO_MODE;
+  else if (Manual_us_local > 1600) Mode_val = MANUAL_MODE;
 
   if (t_us - accel_last_us_local > 30000) Accel_us_local = ACCEL_CENTER_US;
 
@@ -682,6 +675,8 @@ Serial.print(" | Cur:"); Serial.print(deg, 1);
 Serial.print(" | dDeg/s:"); Serial.print(steer_rate_dps, 1);
 Serial.print(" | PID:"); Serial.print(u_used, 2);
 Serial.print(" | POT:"); Serial.print(POTval);
+Serial.print(" | MAN_US:"); Serial.print(Manual_us_local);
+Serial.print(" | AUTO_US:"); Serial.print(Auto_us_local);
 Serial.print(" | ENC:"); Serial.print(encoder_local);
 Serial.print(" | dENC:"); Serial.print(d_encoder);
 Serial.print(" | EA:"); Serial.print(encoder_a_edges_local);

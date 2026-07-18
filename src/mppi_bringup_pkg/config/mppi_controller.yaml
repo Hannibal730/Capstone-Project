@@ -78,9 +78,10 @@ controller_server: # planner/CSV path를 FollowPath action으로 받아 MPPI 제
       vx_std: 0.3 # 후보 trajectory 생성 시 전진속도(vx)에 더하는 Gaussian noise 표준편차
       wz_std: 0.3 # 후보 trajectory 생성 시 yaw rate(wz)에 더하는 Gaussian noise 표준편차
 
-      vx_max: 2.0 # MPPI가 생성할 수 있는 최대 전진 속도(m/s)
+      # 중요. 헤네스 브룬 T870의 하드웨어 제원 상 명시된 최대 속도는 4.4m/s.
+      vx_max: 4.44 # MPPI가 생성할 수 있는 최대 전진 속도(m/s)
       vx_min: -0.5 # MPPI가 생성할 수 있는 최소 x 속도(m/s)이며, 음수면 후진 후보도 포함됨
-      wz_max: 1.0 # MPPI가 생성할 수 있는 최대 yaw rate(rad/s)
+      wz_max: 2.73 # MPPI가 생성할 수 있는 최대 yaw rate(rad/s)
 
       temperature: 0.3 # 비용이 낮은 후보를 얼마나 강하게 선택할지 정하며, 낮을수록 최저비용 후보 쪽으로 집중됨
       gamma: 0.015 # control 변화/effort 비용에 영향을 주는 MPPI 계수로, command가 튀는 정도와 관련됨

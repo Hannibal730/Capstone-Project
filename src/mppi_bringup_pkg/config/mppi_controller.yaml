@@ -55,7 +55,7 @@ controller_server: # planner/CSV path를 FollowPath action으로 받아 MPPI 제
     progress_checker: # FollowPath 수행 중 stuck 상태인지 판단하는 progress checker 설정
       plugin: "nav2_controller::SimpleProgressChecker" # 일정 시간 안에 일정 거리 이상 움직였는지 확인하는 기본 checker
       required_movement_radius: 0.5 # 이 거리(m) 이상 움직여야 진행 중이라고 인정함
-      movement_time_allowance: 10.0 # required_movement_radius를 만족해야 하는 제한 시간(sec)
+      movement_time_allowance: 300.0 # required_movement_radius를 만족해야 하는 제한 시간(sec)
 
     goal_checker: # path의 최종 goal에 도달했는지 판정하는 goal checker 설정
       plugin: "nav2_controller::SimpleGoalChecker" # xy/yaw tolerance 기반의 기본 goal checker
@@ -100,8 +100,8 @@ controller_server: # planner/CSV path를 FollowPath action으로 받아 MPPI 제
         consider_footprint: true # true면 base_link 점이 아니라 차량 footprint polygon 전체로 충돌을 검사함
 
       TrajectoryVisualizer: # MPPI 후보 trajectory를 RViz MarkerArray로 표시하는 방식을 정함
-        trajectory_step: 5 # 모든 후보를 그리지 않고 몇 번째 trajectory마다 하나씩 표시할지 결정함
-        time_step: 3 # trajectory 내부의 모든 점을 그리지 않고 몇 step마다 하나씩 표시할지 결정함
+        trajectory_step: 50 # 모든 후보를 그리지 않고 몇 번째 trajectory마다 하나씩 표시할지 결정함
+        time_step: 5 # trajectory 내부의 모든 점을 그리지 않고 몇 step마다 하나씩 표시할지 결정함
 
       critics: # 후보 trajectory에 비용을 매기는 critic plugin ID 목록이며, 아래 critic 설정 이름과 일치해야 함
         - "ConstraintCritic" # 속도/가속/운동학적 제약을 넘는 후보를 억제함

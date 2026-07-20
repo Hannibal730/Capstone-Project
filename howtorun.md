@@ -88,11 +88,6 @@ controller_server:
 ## 2. 터미널 1 — 휠 엔코더 센서 실행
 
 ```
-cd /home/$(whoami)/Mando2026_ws
-sv
-sr
-si
-
 ros2 run bridge_pkg serial_bridge --ros-args \
   --params-file src/bridge_pkg/config/bridge_params.yaml
 ```
@@ -100,11 +95,6 @@ ros2 run bridge_pkg serial_bridge --ros-args \
 ## 3. 터미널 2 — IMU 센서 실행
 
 ```
-cd /home/$(whoami)/Mando2026_ws
-sv
-sr
-si
-
 ros2 run imu_pkg imu_publisher --ros-args \
   --params-file src/imu_pkg/config/imu_params.yaml
 ```
@@ -112,11 +102,6 @@ ros2 run imu_pkg imu_publisher --ros-args \
 ## 4. 터미널 3 — `/odom/ekf_encoder_imu` 실행
 
 ```
-cd /home/$(whoami)/Mando2026_ws
-sv
-sr
-si
-
 ros2 run odom_pkg ekf_encoder_imu_odometry \
   --params-file src/odom_pkg/config/ekf_encoder_imu_params.yaml \
   --odom-params-file src/odom_pkg/config/odom_params.yaml
@@ -125,11 +110,6 @@ ros2 run odom_pkg ekf_encoder_imu_odometry \
 ## 5. 터미널 4 — MPPI controller 실행
 
 ```
-cd /home/$(whoami)/Mando2026_ws
-sv
-sr
-si
-
 ros2 launch mppi_bringup_pkg mppi_controller.launch.py
 ```
 
@@ -138,14 +118,10 @@ ros2 launch mppi_bringup_pkg mppi_controller.launch.py
 ## 6. 터미널 5 — RViz2 목표 클릭 또는 path 입력
 
 RViz2에서 마우스로 목표점을 줄 때:
-
-```
-rviz2
-```
-
 - Fixed Frame을 `odom`으로 설정
 - `2D Goal Pose`로 목표 위치와 방향 클릭
 - `mppi_path_client`가 `/goal_pose`를 받아 `planner_server/compute_path_to_pose`로 경로를 생성한 뒤 `FollowPath`로 전송
+
 
 CSV 또는 별도 노드가 만든 path를 쓸 때:
 
@@ -170,18 +146,10 @@ ros2 run mppi_bringup_pkg mppi_path_client --ros-args \
 
 기본 launch(`start_path_client:=true`)를 이미 실행 중이라면 CSV 파일용 `mppi_path_client`를 추가로 띄우지 말고 `/mppi/csv_path` topic 방식으로 path를 넣는다.
 
-## 7. MPPI 출력 확인
-
-```
-ros2 topic echo /cmd_vel
-ros2 topic echo /mppi/active_path
-ros2 topic echo /trajectories
-```
-
-주의: 여기까지는 MPPI가 `/cmd_vel`을 만드는 단계다. 실제 차량을 움직이려면 `/cmd_vel`을 구동/조향 명령으로 변환하는 저수준 제어 노드가 추가로 필요하다.
+여기까지는 MPPI가 `/cmd_vel`을 만드는 단계다. 실제 차량을 움직이려면 `/cmd_vel`을 구동/조향 명령으로 변환하는 저수준 제어 노드가 추가로 필요하다.
 
 
-## 8. 시리얼 브릿지 사용
+## 7. 시리얼 브릿지 사용
 
 ```
 ros2 run bridge_pkg serial_bridge --ros-args \
@@ -190,25 +158,23 @@ ros2 run bridge_pkg serial_bridge --ros-args \
 
 출력 확인
 ```
-ros2 topic echo /cmd_vel
+ros2 topic echo /auto_throttle
 ros2 topic echo /auto_steer_deg
 ```
 
-<!-- ## `/f9p/*`, `/ublox_gps_node/*`
-```
-ros2 launch ublox_gps ublox_f9p_launch.py serial_port:=/dev/ttyUSB0 baudrate:=115200
-```
-
-## `/f9r/*`, `/ublox_gps_node/*`
-```
-ros2 launch ublox_gps ublox_f9r_launch.py serial_port:=/dev/ttyUSB1 baudrate:=115200 -->
 
 
 
-# ROS BAG 만들기
+# ROS BAG 기록방법
 ```
-ros2 bag record -e "(/imu/.*|/encoder/.*)"
+ros2 bag record /토픽이름1 /토픽이름2
+ros2 bag record -a
 ```
 
----
-udev 작업 필요
+# gnss 센서 실행 및 RTK 잡는 방법
+```
+ros2 launch ublox_gps ublox_f9p_launch.py
+ros2 launch ublox_gps ublox_f9r_launch.py
+ros2 run fix2nmea fix2nmea
+ros2 launch ntrip_client ntrip_client_launch.py
+```

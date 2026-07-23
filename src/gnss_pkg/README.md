@@ -236,6 +236,21 @@ RTCM 보정 데이터 수신 확인:
 ros2 topic echo /ntrip_client/rtcm
 ```
 
+센서별 정확도 확인 확인:
+```bash
+ros2 topic echo /f9p/fix --field status
+ros2 topic echo /f9r/fix --field status
+
+ros2 topic echo /f9p/fix --field position_covariance
+ros2 topic echo /f9r/fix --field position_covariance
+```
+
+인터넷 연결 품질 확인:
+```bash
+ping -c 50 -i 0.2 8.8.8.8
+nc -vz -w 3 www.gnssdata.or.kr 2101
+```
+
 토픽 연결 관계를 확인하려면 다음 명령이 유용합니다.
 
 ```bash
